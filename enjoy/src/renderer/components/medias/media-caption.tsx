@@ -39,7 +39,7 @@ export const MediaCaption = () => {
     setTranscriptionDraft,
     ipaMappings,
   } = useContext(MediaPlayerProviderContext);
-  const { EnjoyApp } = useContext(AppSettingsProviderContext);
+  const { EnjoyApp, learningLanguage } = useContext(AppSettingsProviderContext);
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [multiSelecting, setMultiSelecting] = useState<boolean>(false);
@@ -415,9 +415,16 @@ export const MediaCaption = () => {
                   const ipas = word.timeline.map((t) =>
                     t.timeline.map((s) => s.text).join("")
                   );
-                  return `${word.text}(${convertWordIpaToNormal(ipas, {
-                    mappings: ipaMappings,
-                  }).join("")})`;
+                  if (
+                    learningLanguage === "en-GB" ||
+                    learningLanguage === "en-US"
+                  ) {
+                    return `${word.text}(${convertWordIpaToNormal(ipas, {
+                      mappings: ipaMappings,
+                    }).join("")})`;
+                  }
+                  //只有英语转换，其它不用
+                  return `${word.text}(${ipas.join("")})`;
                 })
                 .join(" ");
 
@@ -477,17 +484,22 @@ export const Caption = (props: {
   } = props;
 
   const { currentNotes, ipaMappings } = useContext(MediaPlayerProviderContext);
+  const { learningLanguage } = useContext(AppSettingsProviderContext);
   const notes = currentNotes.filter((note) => note.parameters?.quoteIndices);
   const [notedquoteIndices, setNotedquoteIndices] = useState<number[]>([]);
 
   let words = caption.text.split(" ");
+
   const ipas = caption.timeline.map((w) =>
-    w.timeline.map((t) =>
-      convertWordIpaToNormal(
-        t.timeline.map((s) => s.text),
-        { mappings: ipaMappings }
-      ).join("")
-    )
+    w.timeline.map((t) => {
+      if (learningLanguage === "en-GB" || learningLanguage === "en-US") {
+        return convertWordIpaToNormal(
+          t.timeline.map((s) => s.text),
+          { mappings: ipaMappings }
+        ).join("");
+      }
+      return t.timeline.map((s) => s.text).join("");
+    })
   );
 
   if (words.length !== caption.timeline.length) {

@@ -79,14 +79,21 @@ const SelectedWords = (props: {
                         }`}
                   >
                     {word.timeline
-                      .map((t) =>
-                        convertWordIpaToNormal(
-                          t.timeline.map((s) => s.text),
-                          {
-                            mappings: ipaMappings,
-                          }
-                        ).join("")
-                      )
+                      .map((t) => {
+                        if (
+                          learningLanguage === "en-GB" ||
+                          learningLanguage === "en-US"
+                        ) {
+                          return convertWordIpaToNormal(
+                            t.timeline.map((s) => s.text),
+                            {
+                              mappings: ipaMappings,
+                            }
+                          ).join("");
+                        }
+                        //只有英语转换，其它不用
+                        return t.timeline.map((s) => s.text).join("");
+                      })
                       .join(" ")}
                   </span>
                 </div>
