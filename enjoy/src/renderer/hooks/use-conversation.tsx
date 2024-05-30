@@ -59,6 +59,7 @@ export const useConversation = () => {
         modelName: model,
         temperature,
         maxTokens,
+        streaming: true,
         frequencyPenalty,
         presencePenalty,
         n: numberOfChoices,
