@@ -22,6 +22,7 @@ export const textCommand = async (
     },
     cache: false,
     verbose: true,
+    streaming: true,
     maxRetries: 1,
   });
 

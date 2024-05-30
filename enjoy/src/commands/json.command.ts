@@ -32,6 +32,7 @@ export const jsonCommand = async (
       baseURL: baseUrl,
     },
     cache: true,
+    streaming: true,
     verbose: true,
     maxRetries: 1,
   });
