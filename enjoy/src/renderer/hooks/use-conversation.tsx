@@ -15,9 +15,19 @@ import {
 import OpenAI from "openai";
 import { type LLMResult } from "@langchain/core/outputs";
 import { v4 } from "uuid";
+import { Client } from "@/api";
+
+// 定义缓存机制
+let wordDeckCache: string[] | null = null;
+let grammarDeckCache: string[] | null = null;
+let wordDeckCacheTimestamp: number | null = null;
+let grammarDeckCacheTimestamp: number | null = null;
+const CACHE_DURATION = 60 * 60 * 1000; // 缓存有效期为 1 小时（以毫秒为单位）
 
 export const useConversation = () => {
-  const { EnjoyApp, user, apiUrl } = useContext(AppSettingsProviderContext);
+  const { EnjoyApp, user, apiUrl, anki, learningLanguage } = useContext(
+    AppSettingsProviderContext
+  );
   const { openai, googleGenerativeAi, currentEngine } = useContext(
     AISettingsProviderContext
   );
@@ -132,7 +142,154 @@ export const useConversation = () => {
       return [];
     }
   };
+  const findDeckByLanguage = (
+    anki: AnkiConfigType,
+    language: string
+  ): DeckConfig | undefined => {
+    return anki.decks?.find((deck) => deck.language === language);
+  };
 
+  // 模拟异步获取 wordDeck 的函数
+  const fetchWordDeck = async (): Promise<string[]> => {
+    // 这里从网络获取数据的过程
+    const client = new Client({
+      baseUrl: anki.url,
+    });
+    const learningLanguageDeck = findDeckByLanguage(anki, learningLanguage);
+    if (!learningLanguageDeck) {
+      throw new Error(`Deck for language ${learningLanguage} not found`);
+    }
+    const resultFromAnki = await client.api.post("", {
+      action: "findCards",
+      version: 6,
+      key: anki.key,
+      params: {
+        query: `deck:${learningLanguageDeck.wordsDeck}`,
+      },
+    });
+    const cardIds: number[] = (resultFromAnki as any).result;
+    const batchSize = 500; // 每批请求的卡片数量，可以根据需要调整
+    const wordDeck: string[] = [];
+
+    for (let i = 0; i < cardIds.length; i += batchSize) {
+      const batch = cardIds.slice(i, i + batchSize);
+      let response = await client.api.post("", {
+        action: "cardsInfo",
+        version: 6,
+        key: anki.key,
+        params: {
+          cards: batch,
+        },
+      });
+
+      (response as any).result.forEach((card: any) => {
+        const fields = card.fields;
+        const fieldOrderZero: any = Object.values(fields).find(
+          (field: any) => field.order === 0
+        );
+        if (fieldOrderZero) {
+          wordDeck.push(fieldOrderZero?.value);
+        }
+      });
+      response = null; //释放
+    }
+
+    return wordDeck;
+  };
+
+  // 模拟异步获取 grammarDeck 的函数
+  const fetchGrammarDeck = async (): Promise<string[]> => {
+    // 这里模拟从网络获取数据的过程
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(["noun", "verb", "adjective"]);
+      }, 1000);
+    });
+  };
+
+  // 获取 wordDeck，并使用缓存机制
+  const getWordDeck = async (): Promise<string[]> => {
+    const now = Date.now();
+
+    // 检查缓存是否存在以及是否过期
+    if (
+      wordDeckCache &&
+      wordDeckCacheTimestamp &&
+      now - wordDeckCacheTimestamp < CACHE_DURATION
+    ) {
+      return wordDeckCache;
+    }
+
+    // 如果缓存不存在或已过期，重新获取数据
+    wordDeckCache = await fetchWordDeck();
+    wordDeckCacheTimestamp = now;
+
+    return wordDeckCache;
+  };
+
+  // 获取 grammarDeck，并使用缓存机制
+  const getGrammarDeck = async (): Promise<string[]> => {
+    const now = Date.now();
+
+    // 检查缓存是否存在以及是否过期
+    if (
+      grammarDeckCache &&
+      grammarDeckCacheTimestamp &&
+      now - grammarDeckCacheTimestamp < CACHE_DURATION
+    ) {
+      return grammarDeckCache;
+    }
+
+    // 如果缓存不存在或已过期，重新获取数据
+    grammarDeckCache = await fetchGrammarDeck();
+    grammarDeckCacheTimestamp = now;
+
+    return grammarDeckCache;
+  };
+
+  // 更新 systemMessage 的函数
+  const addConstraints = async (systemMessage: string): Promise<string> => {
+    // 定义需要查找和替换的词汇
+    const wordToCheck = "wordDeck";
+    const grammarToCheck = "grammarDeck";
+
+    // 检查并替换 wordDeck
+    if (systemMessage.includes(wordToCheck)) {
+      const wordDeck = await getWordDeck();
+      const wordDeckString = wordDeck.join(", ");
+      systemMessage = systemMessage.replace(
+        new RegExp(`\\b${wordToCheck}\\b`, "g"),
+        ""
+      );
+      const wordConstraints = `
+Additional important requirements: Using only the following words:
+${wordDeckString}
+Do not use any other words outside of this list.
+    `;
+      systemMessage += ` ${wordConstraints}`;
+    }
+
+    // 检查并替换 grammarDeck
+    if (systemMessage.includes(grammarToCheck)) {
+      const grammarDeck = await getGrammarDeck();
+      const grammarDeckString = grammarDeck.join(", ");
+      systemMessage = systemMessage.replace(
+        new RegExp(`\\b${grammarToCheck}\\b`, "g"),
+        ""
+      );
+      const grammarConstraints = `
+Additional important requirements: Using only the following grammar terms:
+${grammarDeckString}
+Do not use any other grammar terms outside of this list.
+    `;
+      systemMessage += ` ${grammarConstraints}`;
+    }
+
+    // 移除多余的空格
+    systemMessage = systemMessage.trim().replace(/\s+/g, " ");
+
+    return systemMessage;
+  };
   /*
    * Ask GPT
    * chat with GPT conversation
@@ -151,8 +308,12 @@ export const useConversation = () => {
       memoryKey: "history",
       returnMessages: true,
     });
+    let systemMessage = conversation.configuration.roleDefinition as string;
+
+    systemMessage = await addConstraints(systemMessage);
+
     const prompt = ChatPromptTemplate.fromMessages([
-      ["system" as MessageRoleEnum, conversation.configuration.roleDefinition],
+      ["system" as MessageRoleEnum, systemMessage],
       new MessagesPlaceholder("history"),
       ["human", "{input}"],
     ]);
