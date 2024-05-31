@@ -23,6 +23,8 @@ type AppSettingsProviderState = {
   switchLearningLanguage?: (lang: string) => void;
   proxy?: ProxyConfigType;
   setProxy?: (config: ProxyConfigType) => Promise<void>;
+  anki?: AnkiConfigType;
+  setAnki?: (config: AnkiConfigType) => Promise<void>;
   ahoy?: typeof ahoy;
 };
 
@@ -49,6 +51,7 @@ export const AppSettingsProvider = ({
   const [nativeLanguage, setNativeLanguage] = useState<string>("zh-CN");
   const [learningLanguage, setLearningLanguage] = useState<string>("en-US");
   const [proxy, setProxy] = useState<ProxyConfigType>();
+  const [anki, setAnki] = useState<AnkiConfigType>();
   const EnjoyApp = window.__ENJOY_APP__;
 
   useEffect(() => {
@@ -57,6 +60,7 @@ export const AppSettingsProvider = ({
     fetchLibraryPath();
     fetchLanguages();
     fetchProxyConfig();
+    fetchAnkiConfig();
   }, []);
 
   useEffect(() => {
@@ -173,6 +177,16 @@ export const AppSettingsProvider = ({
     });
   };
 
+  const fetchAnkiConfig = async () => {
+    const _ankiConfig = await EnjoyApp.settings.get("ankiConfig");
+    setAnki(_ankiConfig);
+  };
+
+  const setAnkiConfigHandler = async (config: AnkiConfigType) => {
+    EnjoyApp.settings.set("ankiConfig", config);
+    setAnki(config);
+  };
+
   return (
     <AppSettingsProviderContext.Provider
       value={{
@@ -193,6 +207,8 @@ export const AppSettingsProvider = ({
         setLibraryPath: setLibraryPathHandler,
         proxy,
         setProxy: setProxyConfigHandler,
+        anki,
+        setAnki: setAnkiConfigHandler,
         initialized: Boolean(user && libraryPath),
         ahoy,
       }}

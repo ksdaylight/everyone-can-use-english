@@ -26,5 +26,7 @@ export * from "./reset-all-button";
 export * from "./theme-settings";
 
 export * from "./proxy-settings";
+export * from "./anki-settings";
+export * from "./anki-sync";
 
 export * from "./whisper-model-options";

@@ -174,3 +174,14 @@ type GptEngineSettingType = {
   baseUrl?: string;
   key?: string;
 };
+//anki
+type DeckConfig = {
+  language?: string;
+  wordsDeck?: string;
+  grammarDeck?: string;
+};
+type AnkiConfigType = {
+  url?: string;
+  key?: string;
+  decks?: DeckConfig[];
+};

@@ -16,6 +16,8 @@ import {
   ResetAllSettings,
   NativeLanguageSettings,
   LearningLanguageSettings,
+  AnkiSettings,
+  AnkiSync,
 } from "@renderer/components";
 import { useState } from "react";
 import { Tooltip } from "react-tooltip";
@@ -31,6 +33,10 @@ export const Preferences = () => {
           <div className="font-semibold mb-4 capitilized">
             {t("basicSettings")}
           </div>
+          <AnkiSettings />
+          <Separator />
+          <AnkiSync />
+          <Separator />
           <NativeLanguageSettings />
           <Separator />
           <LearningLanguageSettings />
