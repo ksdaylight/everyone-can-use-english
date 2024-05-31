@@ -416,6 +416,7 @@ ${log}
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       spellcheck: false,
+      webSecurity: false, // 禁用 Web 安全
     },
   });
 
