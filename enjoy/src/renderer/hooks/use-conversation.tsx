@@ -151,6 +151,16 @@ export const useConversation = () => {
 
   // 模拟异步获取 wordDeck 的函数
   const fetchWordDeck = async (): Promise<string[]> => {
+    return fetchDeckUsefulData("word");
+  };
+
+  // 模拟异步获取 grammarDeck 的函数
+  const fetchGrammarDeck = async (): Promise<string[]> => {
+    return fetchDeckUsefulData("grammar");
+  };
+  //
+  const fetchDeckUsefulData = async (type: string): Promise<string[]> => {
+    // 这里模拟从网络获取数据的过程
     // 这里从网络获取数据的过程
     const client = new Client({
       baseUrl: anki.url,
@@ -159,17 +169,22 @@ export const useConversation = () => {
     if (!learningLanguageDeck) {
       throw new Error(`Deck for language ${learningLanguage} not found`);
     }
+    const targetDeck =
+      type === "word"
+        ? learningLanguageDeck.wordsDeck
+        : learningLanguageDeck.grammarDeck; //简单判断，有需要再改
+
     const resultFromAnki = await client.api.post("", {
       action: "findCards",
       version: 6,
       key: anki.key,
       params: {
-        query: `deck:${learningLanguageDeck.wordsDeck}`,
+        query: `deck:${targetDeck}`,
       },
     });
     const cardIds: number[] = (resultFromAnki as any).result;
     const batchSize = 500; // 每批请求的卡片数量，可以根据需要调整
-    const wordDeck: string[] = [];
+    const deckResult: string[] = [];
 
     for (let i = 0; i < cardIds.length; i += batchSize) {
       const batch = cardIds.slice(i, i + batchSize);
@@ -188,23 +203,13 @@ export const useConversation = () => {
           (field: any) => field.order === 0
         );
         if (fieldOrderZero) {
-          wordDeck.push(fieldOrderZero?.value);
+          deckResult.push(fieldOrderZero?.value);
         }
       });
       response = null; //释放
     }
 
-    return wordDeck;
-  };
-
-  // 模拟异步获取 grammarDeck 的函数
-  const fetchGrammarDeck = async (): Promise<string[]> => {
-    // 这里模拟从网络获取数据的过程
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(["noun", "verb", "adjective"]);
-      }, 1000);
-    });
+    return deckResult;
   };
 
   // 获取 wordDeck，并使用缓存机制
