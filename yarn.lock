@@ -4546,6 +4546,33 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@radix-ui/react-checkbox@npm:^1.0.4":
+  version: 1.0.4
+  resolution: "@radix-ui/react-checkbox@npm:1.0.4"
+  dependencies:
+    "@babel/runtime": "npm:^7.13.10"
+    "@radix-ui/primitive": "npm:1.0.1"
+    "@radix-ui/react-compose-refs": "npm:1.0.1"
+    "@radix-ui/react-context": "npm:1.0.1"
+    "@radix-ui/react-presence": "npm:1.0.1"
+    "@radix-ui/react-primitive": "npm:1.0.3"
+    "@radix-ui/react-use-controllable-state": "npm:1.0.1"
+    "@radix-ui/react-use-previous": "npm:1.0.1"
+    "@radix-ui/react-use-size": "npm:1.0.1"
+  peerDependencies:
+    "@types/react": "*"
+    "@types/react-dom": "*"
+    react: ^16.8 || ^17.0 || ^18.0
+    react-dom: ^16.8 || ^17.0 || ^18.0
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    "@types/react-dom":
+      optional: true
+  checksum: 10c0/a4bd259a7e15ad88f72524190ddcc2db0688d439aad954e06d0adf6038b2e17397ed8ae0ea26ab09bf6981f1b9dd883904b2b7e74b307b5c6b1a3765d27fe737
+  languageName: node
+  linkType: hard
+
 "@radix-ui/react-collapsible@npm:1.0.3":
   version: 1.0.3
   resolution: "@radix-ui/react-collapsible@npm:1.0.3"
@@ -6946,6 +6973,25 @@ __metadata:
   peerDependencies:
     tailwindcss: "*"
   checksum: 10c0/6c01287e7492c001595cd5a39765f313e48e1d2997ea78823919edabd692300d144c42b6e16dee6e077a683e635b9164ff985d5a0f8eeff7824b2d119151899e
+  languageName: node
+  linkType: hard
+
+"@tanstack/react-table@npm:^8.17.3":
+  version: 8.17.3
+  resolution: "@tanstack/react-table@npm:8.17.3"
+  dependencies:
+    "@tanstack/table-core": "npm:8.17.3"
+  peerDependencies:
+    react: ">=16.8"
+    react-dom: ">=16.8"
+  checksum: 10c0/d1ab321f189f1c7e20336c0516f8155a3d46aea74cc7ec849239b7323cf3e4fe919585489de3512eab36fceb7c4eae245e58235e6fcb5f112379411d801605fd
+  languageName: node
+  linkType: hard
+
+"@tanstack/table-core@npm:8.17.3":
+  version: 8.17.3
+  resolution: "@tanstack/table-core@npm:8.17.3"
+  checksum: 10c0/e45f0f74b645689c762dd8c1042726d804726a488130fb2d36e24384bd813a601ed4d20abff3b4ba1bb1a648d14029f65d7fa8728099e0fd9f2702b51dc586c2
   languageName: node
   linkType: hard
 
@@ -18228,6 +18274,9 @@ __metadata:
 "root-workspace-0b6124@workspace:.":
   version: 0.0.0-use.local
   resolution: "root-workspace-0b6124@workspace:."
+  dependencies:
+    "@radix-ui/react-checkbox": "npm:^1.0.4"
+    "@tanstack/react-table": "npm:^8.17.3"
   languageName: unknown
   linkType: soft
 

@@ -5,6 +5,7 @@ import {
   AudiosTable,
   AudioEditForm,
   LoaderSpin,
+  AudiosDataTable,
 } from "@renderer/components";
 import { t } from "i18next";
 import {
@@ -133,7 +134,7 @@ export const AudiosComponent = () => {
   return (
     <>
       <div className="">
-        <Tabs defaultValue="grid">
+        <Tabs defaultValue="list">
           <div className="flex justify-between mb-4">
             <div className="flex items-center space-x-4">
               <TabsList>
@@ -155,7 +156,7 @@ export const AudiosComponent = () => {
             </div>
           </TabsContent>
           <TabsContent value="list">
-            <AudiosTable
+            <AudiosDataTable
               audios={audios}
               onEdit={(audio) => setEditing(audio)}
               onDelete={(audio) => setDeleting(audio)}
