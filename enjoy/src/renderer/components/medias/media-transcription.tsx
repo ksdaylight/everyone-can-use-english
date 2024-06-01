@@ -55,6 +55,14 @@ export const MediaTranscription = () => {
       segment: SegmentType;
     }[]
   >([]);
+  const [showAllText, setShowAllText] = useState(false);
+  const [showText, setShowText] = useState<{ [key: number]: boolean }>({});
+  const toggleShowText = (index: number) => {
+    setShowText((prevShowText) => ({
+      ...prevShowText,
+      [index]: !prevShowText[index],
+    }));
+  };
 
   const fetchSegmentStats = async () => {
     if (!media) return;
@@ -116,6 +124,14 @@ export const MediaTranscription = () => {
             <span className="capitalize">{t("transcript")}</span>
           </div>
           <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAllText((prev) => !prev)}
+              className="capitalize"
+            >
+              {showAllText ? t("hideAll") : t("showAll")}
+            </Button>
             <MediaTranscriptionReadButton />
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -164,36 +180,51 @@ export const MediaTranscription = () => {
 
       {(transcription.result as AlignmentResult).timeline.map(
         (sentence, index) => (
-          <div
-            key={index}
-            id={`segment-${index}`}
-            className={`py-2 px-4 cursor-pointer hover:bg-yellow-400/10 ${
-              currentSegmentIndex === index ? "bg-yellow-400/25" : ""
-            }`}
-            onClick={() => {
-              const duration = wavesurfer.getDuration();
-              wavesurfer.seekTo(
-                Math.floor((sentence.startTime / duration) * 1e8) / 1e8
-              );
-              wavesurfer.setScrollTime(sentence.startTime);
-              setCurrentSegmentIndex(index);
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs opacity-50">#{index + 1}</span>
-              <div className="flex items-center space-x-2">
-                {(recordingStats || []).findIndex(
-                  (s) => s.referenceId === index
-                ) !== -1 && <MicIcon className="w-3 h-3 text-sky-500" />}
-                {(notesStats || []).findIndex(
-                  (s) => s.segment?.segmentIndex === index
-                ) !== -1 && <PencilLineIcon className="w-3 h-3 text-sky-500" />}
-                <span className="text-xs opacity-50">
-                  {formatDuration(sentence.startTime, "s")}
-                </span>
+          <div key={index} className="flex items-center">
+            <div
+              id={`segment-${index}`}
+              className={`w-full py-2 px-4 cursor-pointer hover:bg-yellow-400/10 ${
+                currentSegmentIndex === index ? "bg-yellow-400/25" : ""
+              }`}
+              onClick={() => {
+                const duration = wavesurfer.getDuration();
+                wavesurfer.seekTo(
+                  Math.floor((sentence.startTime / duration) * 1e8) / 1e8
+                );
+                wavesurfer.setScrollTime(sentence.startTime);
+                setCurrentSegmentIndex(index);
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs opacity-50">#{index + 1}</span>
+                <div className="flex items-center space-x-2">
+                  {(recordingStats || []).findIndex(
+                    (s) => s.referenceId === index
+                  ) !== -1 && <MicIcon className="w-3 h-3 text-sky-500" />}
+                  {(notesStats || []).findIndex(
+                    (s) => s.segment?.segmentIndex === index
+                  ) !== -1 && (
+                    <PencilLineIcon className="w-3 h-3 text-sky-500" />
+                  )}
+                  <span className="text-xs opacity-50">
+                    {formatDuration(sentence.startTime, "s")}
+                  </span>
+                </div>
               </div>
+              {(showAllText || showText[index]) && (
+                <p className="">{sentence.text}</p>
+              )}
             </div>
-            <p className="">{sentence.text}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleShowText(index);
+              }}
+            >
+              {showText[index] ? t("hide") : t("show")}
+            </Button>
           </div>
         )
       )}

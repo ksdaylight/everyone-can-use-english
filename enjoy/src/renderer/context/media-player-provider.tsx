@@ -375,7 +375,7 @@ export const MediaPlayerProvider = ({
               ticks: {
                 autoSkip: false,
               },
-              display: true,
+              display: false,
               grid: {
                 display: false,
               },

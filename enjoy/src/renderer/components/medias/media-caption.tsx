@@ -14,6 +14,7 @@ import {
   SpeechIcon,
   NotebookPenIcon,
   DownloadIcon,
+  EyeOffIcon,
 } from "lucide-react";
 import {
   Timeline,
@@ -45,6 +46,7 @@ export const MediaCaption = () => {
   const [multiSelecting, setMultiSelecting] = useState<boolean>(false);
 
   const [displayIpa, setDisplayIpa] = useState<boolean>(true);
+  const [displayAll, setDisplayAll] = useState<boolean>(false);
   const [displayNotes, setDisplayNotes] = useState<boolean>(true);
   const [_, copyToClipboard] = useCopyToClipboard();
   const [copied, setCopied] = useState<boolean>(false);
@@ -358,6 +360,7 @@ export const MediaCaption = () => {
             currentSegmentIndex={currentSegmentIndex}
             activeIndex={activeIndex}
             displayIpa={displayIpa}
+            displayAll={displayAll}
             displayNotes={displayNotes}
             onClick={toggleSeletedIndex}
           />
@@ -365,6 +368,16 @@ export const MediaCaption = () => {
       </div>
 
       <div className="flex flex-col space-y-2">
+        <Button
+          variant={displayAll ? "secondary" : "outline"}
+          size="icon"
+          className="rounded-full w-8 h-8 p-0"
+          data-tooltip-id="media-player-tooltip"
+          data-tooltip-content={"DisplayAll"}
+          onClick={() => setDisplayAll(!displayAll)}
+        >
+          <EyeOffIcon className="w-4 h-4" />
+        </Button>
         <Button
           variant={displayIpa ? "secondary" : "outline"}
           size="icon"
@@ -470,6 +483,7 @@ export const Caption = (props: {
   currentSegmentIndex: number;
   activeIndex?: number;
   displayIpa?: boolean;
+  displayAll?: boolean;
   displayNotes?: boolean;
   onClick?: (index: number) => void;
 }) => {
@@ -479,6 +493,7 @@ export const Caption = (props: {
     currentSegmentIndex,
     activeIndex,
     displayIpa,
+    displayAll,
     displayNotes,
     onClick,
   } = props;
@@ -515,22 +530,23 @@ export const Caption = (props: {
           key={`word-${currentSegmentIndex}-${index}`}
           id={`word-${currentSegmentIndex}-${index}`}
         >
-          <div
-            className={`font-serif text-lg xl:text-xl 2xl:text-2xl p-1 pb-2 rounded ${
-              onClick && "hover:bg-red-500/10 cursor-pointer"
-            } ${index === activeIndex ? "text-red-500" : ""} ${
-              selectedIndices.includes(index) ? "bg-red-500/10 selected" : ""
-            } ${
-              notedquoteIndices.includes(index)
-                ? "border-b border-red-500 border-dashed"
-                : ""
-            }`}
-            onClick={() => onClick && onClick(index)}
-          >
-            {word}
-          </div>
-
-          {displayIpa && (
+          {displayAll && (
+            <div
+              className={`font-serif text-lg xl:text-xl 2xl:text-2xl p-1 pb-2 rounded ${
+                onClick && "hover:bg-red-500/10 cursor-pointer"
+              } ${index === activeIndex ? "text-red-500" : ""} ${
+                selectedIndices.includes(index) ? "bg-red-500/10 selected" : ""
+              } ${
+                notedquoteIndices.includes(index)
+                  ? "border-b border-red-500 border-dashed"
+                  : ""
+              }`}
+              onClick={() => onClick && onClick(index)}
+            >
+              {word}
+            </div>
+          )}
+          {displayAll && displayIpa && (
             <div
               className={`select-text text-sm 2xl:text-base text-muted-foreground font-code mb-1 px-1 ${
                 index === 0 ? "before:content-['/']" : ""

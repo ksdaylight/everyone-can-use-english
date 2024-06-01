@@ -123,6 +123,7 @@ export const MediaTranscriptionReadButton = () => {
                         caption={sentence}
                         currentSegmentIndex={index}
                         displayIpa={true}
+                        displayAll={true}
                         displayNotes={false}
                       />
                     </div>
