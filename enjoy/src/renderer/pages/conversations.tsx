@@ -165,7 +165,17 @@ export default () => {
       const defaultGpt = await webApi.config("default_gpt_preset");
       const defaultTts = await webApi.config("default_tts_preset");
 
-      presets = gptPresets;
+      // 创建一个包含 gptPresets 所有键的集合
+      const gptPresetsKeys = new Set(gptPresets.map((preset) => preset.key));
+
+      // 从 GPT_PRESETS 中筛选出 key 不在 gptPresetsKeys 集合中的预设
+      const uniqueGptPresets = GPT_PRESETS.filter(
+        (preset) => !gptPresetsKeys.has(preset.key)
+      );
+
+      // 将 uniqueGptPresets 和 gptPresets 合并
+      presets = [...uniqueGptPresets, ...gptPresets];
+
       defaultGpt.key = "custom";
       defaultGpt.name = t("custom");
       defaultGpt.engine = currentEngine.name;

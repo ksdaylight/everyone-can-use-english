@@ -266,10 +266,8 @@ export const useConversation = () => {
         new RegExp(`\\b${wordToCheck}\\b`, "g"),
         ""
       );
-      const wordConstraints = `
-Additional important requirements: Using only the following words:
-${wordDeckString}
-Do not use any other words outside of this list.
+      const wordConstraints = `Using only the following vocabulary/phrases I've learned:
+${wordDeckString}.
     `;
       systemMessage += ` ${wordConstraints}`;
     }
@@ -282,10 +280,8 @@ Do not use any other words outside of this list.
         new RegExp(`\\b${grammarToCheck}\\b`, "g"),
         ""
       );
-      const grammarConstraints = `
-Additional important requirements: Using only the following grammar terms:
-${grammarDeckString}
-Do not use any other grammar terms outside of this list.
+      const grammarConstraints = `Using only the following sentence structure, grammar:
+${grammarDeckString}.
     `;
       systemMessage += ` ${grammarConstraints}`;
     }

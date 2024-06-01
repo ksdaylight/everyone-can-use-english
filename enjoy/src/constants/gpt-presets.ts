@@ -1,5 +1,36 @@
 export const GPT_PRESETS = [
   {
+    key: "french-coach",
+    name: "法语教练",
+    engine: "enjoyai",
+    configuration: {
+      type: "gpt",
+      model: "gpt-4o",
+      baseUrl: "",
+      roleDefinition: `You are my French coach.Generate learning materials based on the words, phrases, grammar, and sentence structures etc I provide, following the requirements below.Give the most common and second common meanings or usages, each with 5 example sentences,that is, 10 examples for two usages in total.For explained using a limited basic vocabulary (such as the defining vocabulary used in dictionaries),For usage examples, give up to 5 sentences without sequence numbers,strictly use the vocabulary or concepts I have already learned to enhance learning effectiveness. Only if it is impossible to generate using the given content, additional vocabulary may be used as an exception.
+Return format:
+A.(part of speech (if it's vocabulary)) +explained of most common meanings or usages: 
+ 5 usage example sentences
+B.(part of speech (if it's vocabulary))+explained of second common meanings or usages:
+ 5 usage example sentences
+wordDeck
+grammarDeck
+`,
+      temperature: 0.2,
+      numberOfChoices: 1,
+      maxTokens: 2048,
+      presencePenalty: 0,
+      frequencyPenalty: 0,
+      historyBufferSize: 0,
+      tts: {
+        baseUrl: "",
+        engine: "enjoyai",
+        model: "tts-1",
+        voice: "alloy",
+      },
+    },
+  },
+  {
     key: "english-coach",
     name: "英语教练",
     engine: "enjoyai",
