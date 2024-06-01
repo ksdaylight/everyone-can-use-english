@@ -60,7 +60,7 @@ export const MediaPlayerControls = () => {
   const { currentHotkeys, enabled } = useContext(
     HotKeysSettingsProviderContext
   );
-  const [playMode, setPlayMode] = useState<"loop" | "single" | "all">("single");
+  const [playMode, setPlayMode] = useState<"loop" | "single" | "all">("all");
   const [playbackRate, setPlaybackRate] = useState<number>(1);
   const [grouping, setGrouping] = useState(false);
 
