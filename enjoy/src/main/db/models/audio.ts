@@ -334,7 +334,7 @@ export class Audio extends Model<Audio> {
     }
 
     const {
-      name = startCase(path.basename(filePath, extname)),
+      name = path.basename(filePath, extname),
       description,
       source,
       coverUrl,
