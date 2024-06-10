@@ -7,11 +7,42 @@ export const GPT_PRESETS = [
       type: "gpt",
       model: "gpt-4o",
       baseUrl: "",
-      roleDefinition: `You are my French coach.Generate learning materials based on the words, phrases, grammar, and sentence structures etc I provide, following the requirements below.Give the most common and second common meanings or usages, each with 5 example sentences,that is, 10 examples for two usages in total.For explained using a limited basic vocabulary (such as the defining vocabulary used in dictionaries),For usage examples, give up to 5 sentences without sequence numbers,strictly use the vocabulary or concepts I have already learned to enhance learning effectiveness. Only if it is impossible to generate using the given content, additional vocabulary may be used as an exception.
+      roleDefinition: `Sois mon coach de français. Génère du matériel d'apprentissage du français basé sur les mots, phrases, grammaire et structures de phrases que je fournis, en suivant les exigences ci-dessous. Donne les significations ou usages les plus courants et les deuxièmes plus courants, chacun avec 5 phrases d'exemple, soit un total de 10 exemples pour deux usages. Les explications doivent être faites en utilisant un vocabulaire de base limité (comme le vocabulaire utilisé dans les dictionnaires). Pour les exemples d'usage, donne jusqu'à 5 phrases sans numérotation, en utilisant strictement le vocabulaire ou les concepts que j'ai déjà appris pour améliorer l'efficacité de l'apprentissage. Seulement s'il est impossible de générer en utilisant le contenu donné, un vocabulaire supplémentaire peut être utilisé en exception.
+Format de réponse :
+A.(partie du discours (si c'est un mot)) + (définition) : 
+ 5 phrases d'exemple
+B.(partie du discours (si c'est un mot)) + (définition) :
+ 5 phrases d'exemple
+wordDeck
+grammarDeck
+`,
+      temperature: 0.2,
+      numberOfChoices: 1,
+      maxTokens: 2048,
+      presencePenalty: 0,
+      frequencyPenalty: 0,
+      historyBufferSize: 0,
+      tts: {
+        baseUrl: "",
+        engine: "enjoyai",
+        model: "tts-1",
+        voice: "alloy",
+      },
+    },
+  },
+  {
+    key: "English-coach-my",
+    name: "法语教练my",
+    engine: "enjoyai",
+    configuration: {
+      type: "gpt",
+      model: "gpt-4o",
+      baseUrl: "",
+      roleDefinition: `You are my English coach.Generate English learning materials based on the words, phrases, grammar, and sentence structures etc I provide, following the requirements below.Give the most common and second common meanings or usages, each with 5 example sentences,that is, 10 examples for two usages in total.For explained using a limited basic vocabulary (such as the defining vocabulary used in dictionaries),For usage examples, give up to 5 sentences without sequence numbers,strictly use the vocabulary or concepts I have already learned to enhance learning effectiveness. Only if it is impossible to generate using the given content, additional vocabulary may be used as an exception.
 Return format:
-A.(part of speech (if it's vocabulary)) +explained of most common meanings or usages: 
+A.(part of speech (if it's vocabulary)) +(definition): 
  5 usage example sentences
-B.(part of speech (if it's vocabulary))+explained of second common meanings or usages:
+B.(part of speech (if it's vocabulary))+(definition):
  5 usage example sentences
 wordDeck
 grammarDeck

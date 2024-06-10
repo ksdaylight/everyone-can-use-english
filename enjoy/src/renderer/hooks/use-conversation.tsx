@@ -280,7 +280,7 @@ ${wordDeckString}.
         new RegExp(`\\b${grammarToCheck}\\b`, "g"),
         ""
       );
-      const grammarConstraints = `Using only the following sentence structure, grammar:
+      const grammarConstraints = `Using only the following sentence structure, grammar etc:
 ${grammarDeckString}.
     `;
       systemMessage += ` ${grammarConstraints}`;
