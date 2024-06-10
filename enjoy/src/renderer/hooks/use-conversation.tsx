@@ -266,7 +266,13 @@ export const useConversation = () => {
         new RegExp(`\\b${wordToCheck}\\b`, "g"),
         ""
       );
-      const wordConstraints = `Using only the following vocabulary/phrases I've learned:
+      let preWordConstraints = "";
+      if (learningLanguage === "fr-FR") {
+        preWordConstraints = "Voici les mots/phrases, etc., que j'ai appris :";
+      } else {
+        preWordConstraints = "Here are the words/phrases etc I learned:";
+      }
+      const wordConstraints = `${preWordConstraints}
 ${wordDeckString}.
     `;
       systemMessage += ` ${wordConstraints}`;
@@ -280,7 +286,15 @@ ${wordDeckString}.
         new RegExp(`\\b${grammarToCheck}\\b`, "g"),
         ""
       );
-      const grammarConstraints = `Using only the following sentence structure, grammar etc:
+      let preGrammarConstraints = "";
+      if (learningLanguage === "fr-FR") {
+        preGrammarConstraints =
+          "Ce qui suit est ce que j'ai appris sur la structure des phrases, la grammaire, etc.:";
+      } else {
+        preGrammarConstraints =
+          "The following are what I learned about sentence structure, grammar etc:";
+      }
+      const grammarConstraints = `${preGrammarConstraints}
 ${grammarDeckString}.
     `;
       systemMessage += ` ${grammarConstraints}`;
@@ -327,13 +341,17 @@ ${grammarDeckString}.
       verbose: true,
     });
     let response: LLMResult["generations"][0] = [];
-    await chain.call({ input: message.content }, [
-      {
-        handleLLMEnd: async (output) => {
-          response = output.generations[0];
+    try {
+      await chain.call({ input: message.content }, [
+        {
+          handleLLMEnd: async (output) => {
+            response = output.generations[0];
+          },
         },
-      },
-    ]);
+      ]);
+    } catch (error) {
+      response.push({ text: systemMessage + "\n---->" + message.content });
+    }
 
     const replies = response.map((r) => {
       return {
@@ -343,7 +361,7 @@ ${grammarDeckString}.
         conversationId: conversation.id,
       };
     });
-
+    // message.content = systemMessage + message.content;
     message.role = "user" as MessageRoleEnum;
     message.conversationId = conversation.id;
 
