@@ -18,6 +18,7 @@ import { AppSettingsProviderContext } from "@renderer/context";
 export const AddMediaButton = () => {
   const [uri, setUri] = useState("");
   const [open, setOpen] = useState(false);
+  const [originalText, setOriginalText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { EnjoyApp } = useContext(AppSettingsProviderContext);
 
@@ -33,7 +34,12 @@ export const AddMediaButton = () => {
     if (!uri) return;
     setSubmitting(true);
 
-    EnjoyApp.audios.create(uri).finally(() => {
+    const params: any = {};
+    if (originalText) {
+      params.originalText = originalText;
+    }
+
+    EnjoyApp.audios.create(uri, params).finally(() => {
       setSubmitting(false);
       setOpen(false);
     });
@@ -55,13 +61,22 @@ export const AddMediaButton = () => {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex space-x-2 mb-6">
+        <div className="flex flex-col space-y-2 mb-6">
           <Input
             placeholder="https://"
             value={uri}
             onChange={(element) => {
               setUri(element.target.value);
             }}
+          />
+          <textarea
+            placeholder={t("originalTextPlaceholder")}
+            value={originalText}
+            onChange={(element) => {
+              setOriginalText(element.target.value);
+            }}
+            className="mt-2"
+            rows={3}
           />
           <Button
             variant="secondary"
