@@ -44,14 +44,16 @@ import {
 import dayjs from "@renderer/lib/dayjs";
 import { secondsToTimestamp } from "@renderer/lib/utils";
 import { Link } from "react-router-dom";
+import { trim } from "lodash";
 
 export const AudiosDataTable = (props: {
   audios: Partial<AudioType>[];
   onEdit: (audio: Partial<AudioType>) => void;
   onDelete: (audio: Partial<AudioType>) => void;
   onTranscribe: (audio: Partial<AudioType>) => void;
+  onSearchTermChange: (searchString: string) => void;
 }) => {
-  const { audios, onEdit, onDelete, onTranscribe } = props;
+  const { audios, onEdit, onDelete, onTranscribe, onSearchTermChange } = props;
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -236,9 +238,10 @@ export const AudiosDataTable = (props: {
         <Input
           placeholder={t("filter_name")}
           value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("name")?.setFilterValue(event.target.value)
-          }
+          onChange={(event) => {
+            onSearchTermChange(trim(event.target.value));
+            table.getColumn("name")?.setFilterValue(trim(event.target.value));
+          }}
           className="max-w-sm"
         />
         <DropdownMenu>

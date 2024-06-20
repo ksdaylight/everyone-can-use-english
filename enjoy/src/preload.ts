@@ -238,8 +238,9 @@ contextBridge.exposeInMainWorld("__ENJOY_APP__", {
     findAll: (params: {
       offset: number | undefined;
       limit: number | undefined;
+      searchTerm?: string | undefined;
     }) => {
-      return ipcRenderer.invoke("audios-find-all", params);
+      return ipcRenderer.invoke("audios-find-all", params, params.searchTerm);
     },
     findOne: (params: any) => {
       return ipcRenderer.invoke("audios-find-one", params);

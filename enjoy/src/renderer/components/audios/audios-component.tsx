@@ -45,6 +45,7 @@ export const AudiosComponent = () => {
   const [transcribing, setTranscribing] = useState<Partial<AudioType> | null>(
     null
   );
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const { transcribe } = useTranscribe();
 
   const { addDblistener, removeDbListener } = useContext(DbProviderContext);
@@ -55,38 +56,50 @@ export const AudiosComponent = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // if (searchTerm && searchTerm.length > 0) {
+    fetchAudios(true);
+    // } else {
+    //   fetchAudios();
+    // }
+  }, [searchTerm]); // 当搜索词变化时重新触发数据查询
+
+  useEffect(() => {
     addDblistener(onAudiosUpdate);
-    fetchAudios();
+    // fetchAudios();
 
     return () => {
       removeDbListener(onAudiosUpdate);
     };
   }, []);
 
-  const fetchAudios = async () => {
+  const fetchAudios = async (isSearch: boolean = false) => {
     if (loading) return;
-    if (offset === -1) return;
+    // if (offset === -1) return;
 
     setLoading(true);
-    const limit = 10;
+    const limit = 20;
     EnjoyApp.audios
       .findAll({
         offset,
         limit,
+        searchTerm: searchTerm ? `${searchTerm}%` : undefined,
       })
       .then((_audios) => {
-        if (_audios.length === 0) {
-          setOffest(-1);
-          return;
-        }
+        // if (_audios.length === 0) {
+        //   setOffest(-1);
+        //   return;
+        // }
 
         if (_audios.length < limit) {
           setOffest(-1);
         } else {
           setOffest(offset + _audios.length);
         }
-
-        dispatchAudios({ type: "append", records: _audios });
+        if (isSearch) {
+          dispatchAudios({ type: "set", records: _audios });
+        } else {
+          dispatchAudios({ type: "append", records: _audios });
+        }
       })
       .catch((err) => {
         toast.error(err.message);
@@ -123,12 +136,13 @@ export const AudiosComponent = () => {
 
   if (audios.length === 0) {
     if (loading) return <LoaderSpin />;
-
-    return (
-      <div className="flex items-center justify-center h-48 border border-dashed rounded-lg">
-        <AddMediaButton />
-      </div>
-    );
+    if (searchTerm.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-48 border border-dashed rounded-lg">
+          <AddMediaButton />
+        </div>
+      );
+    }
   }
 
   return (
@@ -161,6 +175,7 @@ export const AudiosComponent = () => {
               onEdit={(audio) => setEditing(audio)}
               onDelete={(audio) => setDeleting(audio)}
               onTranscribe={(audio) => setTranscribing(audio)}
+              onSearchTermChange={(searchString) => setSearchTerm(searchString)}
             />
           </TabsContent>
         </Tabs>
@@ -168,7 +183,7 @@ export const AudiosComponent = () => {
 
       {offset > -1 && (
         <div className="flex items-center justify-center my-4">
-          <Button variant="link" onClick={fetchAudios}>
+          <Button variant="link" onClick={() => fetchAudios()}>
             {t("loadMore")}
           </Button>
         </div>
