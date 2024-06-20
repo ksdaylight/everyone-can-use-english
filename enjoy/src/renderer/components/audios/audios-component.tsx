@@ -77,10 +77,10 @@ export const AudiosComponent = () => {
     // if (offset === -1) return;
 
     setLoading(true);
-    const limit = 20;
+    const limit = 2;
     EnjoyApp.audios
       .findAll({
-        offset,
+        offset: isSearch ? 0 : offset,
         limit,
         searchTerm: searchTerm ? `${searchTerm}%` : undefined,
       })
