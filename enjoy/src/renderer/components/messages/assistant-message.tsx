@@ -56,10 +56,18 @@ export const AssistantMessageComponent = (props: {
 
   useEffect(() => {
     if (speech) return;
+
     if (configuration?.type !== "tts") return;
 
     findOrCreateSpeech();
   }, [message]);
+
+  useEffect(() => {
+    if (speech) {
+      startShadow(); //自动为每个speech创建 对应audios
+      return;
+    }
+  }, [speech]);
 
   const findOrCreateSpeech = async () => {
     const msg = await EnjoyApp.messages.findOne({ id: message.id });
@@ -116,7 +124,7 @@ export const AssistantMessageComponent = (props: {
       setResourcing(false);
     }
 
-    setShadowing(true);
+    setShadowing(false); //自动为每个speech创建 对应audios 阻止自动跳转
   };
 
   const handleDownload = async () => {
