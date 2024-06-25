@@ -25,9 +25,8 @@ let grammarDeckCacheTimestamp: number | null = null;
 const CACHE_DURATION = 60 * 60 * 1000; // 缓存有效期为 1 小时（以毫秒为单位）
 
 export const useConversation = () => {
-  const { EnjoyApp, user, apiUrl, anki, learningLanguage } = useContext(
-    AppSettingsProviderContext
-  );
+  const { EnjoyApp, user, apiUrl, anki, learningLanguage, azureApi } =
+    useContext(AppSettingsProviderContext);
   const { openai, googleGenerativeAi, currentEngine } = useContext(
     AISettingsProviderContext
   );
@@ -605,8 +604,8 @@ ${grammarDeckString}.
     const ssmlOutput = generateSSMLText(params.text, frSpeakers);
     const buffer: any = await EnjoyApp.recordings.askAzureTTS(
       ssmlOutput,
-      "",
-      ""
+      azureApi.key,
+      azureApi.region
     );
 
     return EnjoyApp.speeches.create(

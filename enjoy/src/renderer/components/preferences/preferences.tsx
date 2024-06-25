@@ -18,6 +18,7 @@ import {
   LearningLanguageSettings,
   AnkiSettings,
   AnkiSync,
+  AzureApiSettings,
 } from "@renderer/components";
 import { useState } from "react";
 import { Tooltip } from "react-tooltip";
@@ -36,6 +37,8 @@ export const Preferences = () => {
           <AnkiSettings />
           <Separator />
           <AnkiSync />
+          <Separator />
+          <AzureApiSettings />
           <Separator />
           <NativeLanguageSettings />
           <Separator />

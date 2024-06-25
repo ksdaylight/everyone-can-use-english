@@ -25,6 +25,8 @@ type AppSettingsProviderState = {
   setProxy?: (config: ProxyConfigType) => Promise<void>;
   anki?: AnkiConfigType;
   setAnki?: (config: AnkiConfigType) => Promise<void>;
+  azureApi?: AzureApiConfigType;
+  setAzureApi?: (config: AzureApiConfigType) => Promise<void>;
   ahoy?: typeof ahoy;
 };
 
@@ -52,6 +54,7 @@ export const AppSettingsProvider = ({
   const [learningLanguage, setLearningLanguage] = useState<string>("en-US");
   const [proxy, setProxy] = useState<ProxyConfigType>();
   const [anki, setAnki] = useState<AnkiConfigType>();
+  const [azureApi, setAzureApi] = useState<AzureApiConfigType>();
   const EnjoyApp = window.__ENJOY_APP__;
 
   useEffect(() => {
@@ -61,6 +64,7 @@ export const AppSettingsProvider = ({
     fetchLanguages();
     fetchProxyConfig();
     fetchAnkiConfig();
+    fetchAzureApiConfig();
   }, []);
 
   useEffect(() => {
@@ -187,6 +191,16 @@ export const AppSettingsProvider = ({
     setAnki(config);
   };
 
+  const fetchAzureApiConfig = async () => {
+    const _azureApiConfig = await EnjoyApp.settings.get("azureApiConfig");
+    setAzureApi(_azureApiConfig);
+  };
+
+  const setAzureApiConfigHandler = async (config: AzureApiConfigType) => {
+    EnjoyApp.settings.set("azureApiConfig", config);
+    setAzureApi(config);
+  };
+
   return (
     <AppSettingsProviderContext.Provider
       value={{
@@ -209,6 +223,8 @@ export const AppSettingsProvider = ({
         setProxy: setProxyConfigHandler,
         anki,
         setAnki: setAnkiConfigHandler,
+        azureApi,
+        setAzureApi: setAzureApiConfigHandler,
         initialized: Boolean(user && libraryPath),
         ahoy,
       }}

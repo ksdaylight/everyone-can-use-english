@@ -185,3 +185,7 @@ type AnkiConfigType = {
   key?: string;
   decks?: DeckConfig[];
 };
+type AzureApiConfigType = {
+  key?: string;
+  region?: string;
+};

@@ -28,5 +28,6 @@ export * from "./theme-settings";
 export * from "./proxy-settings";
 export * from "./anki-settings";
 export * from "./anki-sync";
+export * from "./azure-api-settings";
 
 export * from "./whisper-model-options";
