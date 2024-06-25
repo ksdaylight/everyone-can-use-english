@@ -256,7 +256,7 @@ export const useConversation = () => {
     // 定义需要查找和替换的词汇
     const wordToCheck = "wordDeck";
     const grammarToCheck = "grammarDeck";
-
+    const clearAndReturnOriginal = "clearAndReturnOriginal";
     // 检查并替换 wordDeck
     if (systemMessage.includes(wordToCheck)) {
       const wordDeck = await getWordDeck();
@@ -299,6 +299,9 @@ ${grammarDeckString}.
       systemMessage += ` ${grammarConstraints}`;
     }
 
+    if (systemMessage.includes(clearAndReturnOriginal)) {
+      systemMessage = ""; //清空
+    }
     // 移除多余的空格
     systemMessage = systemMessage.trim().replace(/\s+/g, " ");
 
@@ -349,7 +352,8 @@ ${grammarDeckString}.
         },
       ]);
     } catch (error) {
-      response.push({ text: systemMessage + "\n---->" + message.content });
+      // response.push({ text: systemMessage + "\n---->" + message.content });//通过主动制造错误，直接返回特定格式内容
+      response.push({ text: systemMessage + message.content }); //通过主动制造错误，直接返回特定格式内容
     }
 
     const replies = response.map((r) => {
