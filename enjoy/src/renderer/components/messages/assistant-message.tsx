@@ -101,10 +101,7 @@ export const AssistantMessageComponent = (props: {
 
     if (!audio) {
       setResourcing(true);
-      let title =
-        speech.text.length > 20
-          ? speech.text.substring(0, 17).trim() + "..."
-          : speech.text;
+      let title = speech.text.split("\n")[0].substring(0, 30).trim(); //第一行的
 
       try {
         title = await summarizeTopic(speech.text);

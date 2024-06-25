@@ -405,7 +405,73 @@ ${grammarDeckString}.
 
     return [reply];
   };
+  const frSpeakers = [
+    "fr-FR-CelesteNeural",
+    "fr-FR-CelesteNeural",
+    "fr-FR-HenriNeural",
+    "fr-FR-AlainNeural",
+    "fr-FR-ClaudeNeural",
+    "fr-FR-MauriceNeural",
+    "fr-FR-JosephineNeural",
+    "fr-FR-YvetteNeural",
+    "fr-FR-EloiseNeural",
+    "fr-FR-JeromeNeural",
+    "fr-FR-CoralieNeural",
+    "fr-FR-JacquelineNeural",
+    "fr-FR-YvesNeural",
+    "fr-FR-DeniseNeural",
+  ];
+  const generateSSMLText = (input: string, speakers: string[]): string => {
+    // Split the input into lines
+    const lines = input.split("\n").map((line) => line.trim());
 
+    // Filter out empty lines and whitespace-only lines
+    const filteredLines = lines.filter((line) => line !== "");
+
+    // Shuffle the speakers array randomly
+    const shuffledSpeakers = shuffleArray(speakers);
+
+    // Prepare SSML text
+    let ssmlText = `
+    <speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" version="1.0" xml:lang="fr-FR">
+  `;
+
+    filteredLines.forEach((line, index) => {
+      // Get speaker from shuffled array
+      const speaker = shuffledSpeakers[index % shuffledSpeakers.length];
+
+      // Skip empty lines
+      if (line.trim() === "") return;
+
+      // Format each line with SSML tags
+      ssmlText += `
+      <voice name="${speaker}">
+        <mstts:express-as>
+          <prosody rate="0%" pitch="0%">
+            ${line}
+          </prosody>
+        </mstts:express-as>
+      </voice>
+    `;
+    });
+
+    // Close SSML tag
+    ssmlText += `
+    </speak>
+  `;
+
+    return ssmlText.trim(); // Trim to remove any leading/trailing whitespace
+  };
+
+  // Function to shuffle array randomly
+  const shuffleArray = (array: any[]): any[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
   const tts = async (params: Partial<SpeechType>) => {
     const { configuration } = params;
     const {
@@ -435,16 +501,117 @@ ${grammarDeckString}.
       throw new Error("OpenAI API key is required");
     }
 
-    const file = await client.audio.speech.create({
-      input: params.text,
-      model,
-      voice,
-    });
-    const buffer = await file.arrayBuffer();
+    // const file = await client.audio.speech.create({
+    //   input: params.text,
+    //   model,
+    //   voice,
+    // });
+    // const buffer = await file.arrayBuffer();
+
+    //      `
+    //     <speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" version="1.0" xml:lang="fr-FR">
+    //     <voice name="fr-FR-CelesteNeural">
+    //         <mstts:express-as>
+    //             <prosody rate="0%" pitch="0%">
+    //                 danse
+    //             </prosody>
+    //         </mstts:express-as>
+    //     </voice>
+
+    //     <voice name="fr-FR-BrigitteNeural">
+    //         <mstts:express-as>
+    //             <prosody rate="0%" pitch="0%">
+    //                 A. danse (nom féminin) : Activité artistique et culturelle consistant en des mouvements rythmés et expressifs du corps.
+    //             </prosody>
+    //         </mstts:express-as>
+    //     </voice>
+
+    //     <voice name="fr-FR-HenriNeural">
+    //         <mstts:express-as>
+    //             <prosody rate="0%" pitch="0%">
+    //                 Elle aime beaucoup la danse classique.
+    //             </prosody>
+    //         </mstts:express-as>
+    //     </voice>
+
+    //     <voice name="fr-FR-AlainNeural">
+    //         <mstts:express-as>
+    //             <prosody rate="0%" pitch="0%">
+    //                 Nous avons un cours de danse tous les mercredis.
+    //             </prosody>
+    //         </mstts:express-as>
+    //     </voice>
+
+    //     <voice name="fr-FR-ClaudeNeural">
+    //         <mstts:express-as>
+    //             <prosody rate="0%" pitch="0%">
+    //                 Les enfants ont fait une belle danse lors du spectacle.
+    //             </prosody>
+    //         </mstts:express-as>
+    //     </voice>
+
+    //     <voice name="fr-FR-MauriceNeural">
+    //         <mstts:express-as>
+    //             <prosody rate="0%" pitch="0%">
+    //                 B. danse (verbe) : Effectuer des mouvements rythmés et coordonnés avec le corps en rythme avec la musique.
+    //             </prosody>
+    //         </mstts:express-as>
+    //     </voice>
+
+    //     <voice name="fr-FR-JosephineNeural">
+    //         <mstts:express-as>
+    //             <prosody rate="0%" pitch="0%">
+    //                 Ils dansent ensemble lors des mariages.
+    //             </prosody>
+    //         </mstts:express-as>
+    //     </voice>
+
+    //     <voice name="fr-FR-YvetteNeural">
+    //         <mstts:express-as>
+    //             <prosody rate="0%" pitch="0%">
+    //                 Les jeunes apprennent à danser le hip-hop.
+    //             </prosody>
+    //         </mstts:express-as>
+    //     </voice>
+
+    //     <voice name="fr-FR-EloiseNeural">
+    //         <mstts:express-as>
+    //             <prosody rate="0%" pitch="0%">
+    //                 Elle danse avec légèreté et grâce.
+    //             </prosody>
+    //         </mstts:express-as>
+    //     </voice>
+    // </speak>
+    //     `
+
+    //     const input = `
+    //   danse
+    //   A. danse (nom féminin) : Activité artistique et culturelle consistant en des mouvements rythmés et expressifs du corps.
+
+    //   Elle aime beaucoup la danse classique.
+
+    //   Nous avons un cours de danse tous les mercredis.
+
+    //   Les enfants ont fait une belle danse lors du spectacle.
+
+    //   B. danse (verbe) : Effectuer des mouvements rythmés et coordonnés avec le corps en rythme avec la musique.
+
+    //   Ils dansent ensemble lors des mariages.
+
+    //   Les jeunes apprennent à danser le hip-hop.
+
+    //   Elle danse avec légèreté et grâce.
+    // `;
+    const ssmlOutput = generateSSMLText(params.text, frSpeakers);
+    const buffer: any = await EnjoyApp.recordings.askAzureTTS(
+      ssmlOutput,
+      "",
+      ""
+    );
 
     return EnjoyApp.speeches.create(
       {
-        text: params.text,
+        text: params.text, //input,
         sourceType: params.sourceType,
         sourceId: params.sourceId,
         configuration: {

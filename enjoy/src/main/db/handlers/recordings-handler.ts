@@ -15,6 +15,7 @@ import {
 import dayjs from "dayjs";
 import { t } from "i18next";
 import log from "@main/logger";
+import { AzureSpeechSdk } from "@/main/azure-speech-sdk";
 
 const logger = log.scope("db/handlers/recordings-handler");
 
@@ -204,7 +205,25 @@ class RecordingsHandler {
         });
       });
   }
-
+  private async askAzureTTS(
+    event: IpcMainEvent,
+    ssml: string,
+    key: string,
+    region: string
+  ) {
+    try {
+      const sdk = new AzureSpeechSdk(key, region);
+      logger.info(
+        "Error synthesizing. ------------------------------>" + key + region
+      );
+      return await sdk.getTTSDataFromAzure({ ssml, key, region });
+    } catch (err) {
+      event.sender.send("on-notification", {
+        type: "error",
+        message: err.message,
+      });
+    }
+  }
   private async stats(
     event: IpcMainEvent,
     options: { from: string; to: string }
@@ -368,6 +387,7 @@ class RecordingsHandler {
     ipcMain.handle("recordings-destroy", this.destroy);
     ipcMain.handle("recordings-upload", this.upload);
     ipcMain.handle("recordings-assess", this.assess);
+    ipcMain.handle("ask-azure-tts", this.askAzureTTS);
     ipcMain.handle("recordings-stats", this.stats);
     ipcMain.handle("recordings-group-by-date", this.groupByDate);
     ipcMain.handle("recordings-group-by-target", this.groupByTarget);

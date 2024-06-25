@@ -176,6 +176,7 @@ type EnjoyAppType = {
     destroy: (id: string) => Promise<void>;
     upload: (id: string) => Promise<void>;
     assess: (id: string, language?: string) => Promise<void>;
+    askAzureTTS: (ssml: string, key: string, region: string) => Promise<any>;
     stats: (params: { from: string; to: string }) => Promise<{
       count: number;
       duration: number;

@@ -320,6 +320,9 @@ contextBridge.exposeInMainWorld("__ENJOY_APP__", {
     assess: (id: string, language?: string) => {
       return ipcRenderer.invoke("recordings-assess", id, language);
     },
+    askAzureTTS: (ssml: string, key: string, region: string) => {
+      return ipcRenderer.invoke("ask-azure-tts", ssml, key, region);
+    },
     stats: (params: { from: string; to: string }) => {
       return ipcRenderer.invoke("recordings-stats", params);
     },
