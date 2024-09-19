@@ -82,7 +82,7 @@ export const AudiosComponent = () => {
       .findAll({
         offset: isSearch ? 0 : offset,
         limit,
-        searchTerm: searchTerm ? `${searchTerm}%` : undefined,
+        searchTerm: searchTerm ? `%${searchTerm}%` : undefined,
       })
       .then((_audios) => {
         // if (_audios.length === 0) {

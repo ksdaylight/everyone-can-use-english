@@ -109,7 +109,22 @@ export const AssistantMessageComponent = (props: {
 
     if (!audio) {
       setResourcing(true);
-      let title = speech.text.split("\n")[0].substring(0, 30).trim(); //第一行的
+      let lines = speech.text.split("\n");
+      let firstNonEmptyLine = "";
+
+      for (let line of lines) {
+        if (line.trim() !== "") {
+          firstNonEmptyLine = line.trim();
+          break;
+        }
+      }
+
+      // let title = speech.text
+      //   .split("\n")[0]
+      //   .substring(0, 30)
+      //   .trim()
+      //   .toLowerCase(); //第一行的
+      let title = firstNonEmptyLine.substring(0, 30).toLowerCase();
 
       try {
         title = await summarizeTopic(speech.text);
