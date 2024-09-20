@@ -14,7 +14,11 @@ export function secondsToTimestamp(seconds: number) {
   const m = Math.floor((seconds % 3600) / 60).toString();
   const s = Math.floor((seconds % 3600) % 60).toString();
 
-  return `${h.padStart(2, "0")}:${m.padStart(2, "0")}:${s.padStart(2, "0")}`;
+  if (h === "0") {
+    return `${m.padStart(2, "0")}:${s.padStart(2, "0")}`;
+  } else {
+    return `${h.padStart(2, "0")}:${m.padStart(2, "0")}:${s.padStart(2, "0")}`;
+  }
 }
 
 export function humanizeDuration(
@@ -44,7 +48,7 @@ export function bytesToSize(bytes: number) {
   return Math.round(bytes / Math.pow(1024, i)) + " " + sizes[i];
 }
 
-export function formatDateTime(date: Date) {
+export function formatDateTime(date: Date | string) {
   dayjs.locale(i18next.resolvedLanguage?.toLowerCase() || "en");
   const now = dayjs();
   const then = dayjs(date);

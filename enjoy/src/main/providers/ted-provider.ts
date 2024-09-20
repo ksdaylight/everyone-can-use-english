@@ -1,5 +1,5 @@
 import log from "@main/logger";
-import $ from "cheerio";
+import * as cheerio from "cheerio";
 import { WebContentsView, ipcMain } from "electron";
 
 const logger = log.scope("providers/ted-provider");
@@ -31,7 +31,7 @@ export class TedProvider {
     if (!html) return [];
 
     try {
-      const json = $.load(html)("#__NEXT_DATA__").text();
+      const json = cheerio.load(html)("#__NEXT_DATA__").text();
       const data = JSON.parse(json);
       return data.props.pageProps.talks;
     } catch (e) {
@@ -44,7 +44,8 @@ export class TedProvider {
     if (!html) return [];
 
     const ideas: TedIdeaType[] = [];
-    $.load(html)(".post.block").each((_, el) => {
+    const $ = cheerio.load(html);
+    $(".post.block").each((_, el) => {
       const url = $(el).find("a.block-post-link").attr("href");
       const cover = $(el).find("img").attr("src");
       const title = $(el).find("h2.block-entry-title").text();
@@ -89,10 +90,14 @@ export class TedProvider {
             true
           )
           .then((html) => {
-            const audio = $.load(html)(".icon-headphones")
+            const audio = cheerio
+              .load(html)(".icon-headphones")
               .closest("a")
               .attr("href");
-            const video = $.load(html)(".icon-video").closest("a").attr("href");
+            const video = cheerio
+              .load(html)(".icon-video")
+              .closest("a")
+              .attr("href");
 
             logger.debug("extracted", url, audio, video);
             resolve({ audio, video });

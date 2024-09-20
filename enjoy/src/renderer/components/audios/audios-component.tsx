@@ -1,11 +1,9 @@
 import { useEffect, useState, useReducer, useContext } from "react";
 import {
   AudioCard,
-  AddMediaButton,
+  MediaAddButton,
   AudiosTable,
   AudioEditForm,
-  LoaderSpin,
-  AudiosDataTable,
 } from "@renderer/components";
 import { t } from "i18next";
 import {
@@ -27,6 +25,15 @@ import {
   DialogHeader,
   DialogTitle,
   toast,
+  Input,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  DialogDescription,
+  AlertDialogTrigger,
 } from "@renderer/components/ui";
 import {
   DbProviderContext,
@@ -34,68 +41,91 @@ import {
 } from "@renderer/context";
 import { LayoutGridIcon, LayoutListIcon } from "lucide-react";
 import { audiosReducer } from "@renderer/reducers";
-import { useNavigate } from "react-router-dom";
-import { useTranscribe } from "@renderer/hooks";
+import { useDebounce } from "@uidotdev/usehooks";
+import { LANGUAGES } from "@/constants";
 
 export const AudiosComponent = () => {
+  const { addDblistener, removeDbListener } = useContext(DbProviderContext);
+  const { EnjoyApp } = useContext(AppSettingsProviderContext);
+
   const [audios, dispatchAudios] = useReducer(audiosReducer, []);
+  const [hasMore, setHasMore] = useState(true);
+
+  const [query, setQuery] = useState("");
+  const [language, setLanguage] = useState<string | null>("all");
+  const [orderBy, setOrderBy] = useState<string | null>("updatedAtDesc");
+  const debouncedQuery = useDebounce(query, 500);
 
   const [editing, setEditing] = useState<Partial<AudioType> | null>(null);
   const [deleting, setDeleting] = useState<Partial<AudioType> | null>(null);
-  const [transcribing, setTranscribing] = useState<Partial<AudioType> | null>(
-    null
-  );
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const { transcribe } = useTranscribe();
-
-  const { addDblistener, removeDbListener } = useContext(DbProviderContext);
-  const { EnjoyApp } = useContext(AppSettingsProviderContext);
-  const [offset, setOffest] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // if (searchTerm && searchTerm.length > 0) {
-    fetchAudios(true);
-    // } else {
-    //   fetchAudios();
-    // }
-  }, [searchTerm]); // 当搜索词变化时重新触发数据查询
+  const [tab, setTab] = useState("grid");
 
   useEffect(() => {
     addDblistener(onAudiosUpdate);
-    // fetchAudios();
 
     return () => {
       removeDbListener(onAudiosUpdate);
     };
   }, []);
 
-  const fetchAudios = async (isSearch: boolean = false) => {
+  useEffect(() => {
+    EnjoyApp.cacheObjects.get("audios-page-tab").then((value) => {
+      if (value) {
+        setTab(value);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    EnjoyApp.cacheObjects.set("audios-page-tab", tab);
+  }, [tab]);
+
+  const fetchAudios = async (options?: { offset: number }) => {
     if (loading) return;
-    // if (offset === -1) return;
+    const { offset = audios.length } = options || {};
 
     setLoading(true);
     const limit = 20;
+
+    let order = [];
+    switch (orderBy) {
+      case "updatedAtDesc":
+        order = [["updatedAt", "DESC"]];
+        break;
+      case "createdAtDesc":
+        order = [["createdAt", "DESC"]];
+        break;
+      case "createdAtAsc":
+        order = [["createdAt", "ASC"]];
+        break;
+      case "recordingsDurationDesc":
+        order = [["recordingsDuration", "DESC"]];
+        break;
+      case "recordingsCountDesc":
+        order = [["recordingsCount", "DESC"]];
+        break;
+      default:
+        order = [["updatedAt", "DESC"]];
+    }
+    let where = {};
+    if (language != "all") {
+      where = { language };
+    }
+
     EnjoyApp.audios
       .findAll({
-        offset: isSearch ? 0 : offset,
+        offset,
         limit,
-        searchTerm: searchTerm ? `%${searchTerm}%` : undefined,
+        order,
+        where,
+        query: debouncedQuery,
       })
       .then((_audios) => {
-        // if (_audios.length === 0) {
-        //   setOffest(-1);
-        //   return;
-        // }
+        setHasMore(_audios.length >= limit);
 
-        if (_audios.length < limit) {
-          setOffest(-1);
-        } else {
-          setOffest(offset + _audios.length);
-        }
-        if (isSearch) {
+        if (offset === 0) {
           dispatchAudios({ type: "set", records: _audios });
         } else {
           dispatchAudios({ type: "append", records: _audios });
@@ -114,14 +144,13 @@ export const AudiosComponent = () => {
     if (!record) return;
 
     if (model === "Audio") {
-      if (action === "create") {
-        dispatchAudios({ type: "create", record });
-        navigate(`/audios/${record.id}`);
-      } else if (action === "destroy") {
+      if (action === "destroy") {
         dispatchAudios({ type: "destroy", record });
+      } else if (action === "create") {
+        dispatchAudios({ type: "create", record });
+      } else if (action === "update") {
+        dispatchAudios({ type: "update", record });
       }
-    } else if (model === "Video" && action === "create") {
-      navigate(`/videos/${record.id}`);
     } else if (model === "Transcription" && action === "update") {
       dispatchAudios({
         type: "update",
@@ -134,54 +163,124 @@ export const AudiosComponent = () => {
     }
   };
 
-  if (audios.length === 0) {
-    if (loading) return <LoaderSpin />;
-    if (searchTerm.length === 0) {
-      return (
-        <div className="flex items-center justify-center h-48 border border-dashed rounded-lg">
-          <AddMediaButton />
-        </div>
-      );
-    }
-  }
+  useEffect(() => {
+    fetchAudios({ offset: 0 });
+  }, [debouncedQuery, language, orderBy]);
 
   return (
     <>
       <div className="">
-        <Tabs defaultValue="list">
-          <div className="flex justify-between mb-4">
-            <div className="flex items-center space-x-4">
-              <TabsList>
-                <TabsTrigger value="grid">
-                  <LayoutGridIcon className="h-4 w-4" />
-                </TabsTrigger>
-                <TabsTrigger value="list">
-                  <LayoutListIcon className="h-4 w-4" />
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            <AddMediaButton />
-          </div>
-          <TabsContent value="grid">
-            <div className="grid gap-4 grid-cols-5">
-              {audios.map((audio) => (
-                <AudioCard audio={audio} key={audio.id} />
-              ))}
-            </div>
-          </TabsContent>
-          <TabsContent value="list">
-            <AudiosDataTable
-              audios={audios}
-              onEdit={(audio) => setEditing(audio)}
-              onDelete={(audio) => setDeleting(audio)}
-              onTranscribe={(audio) => setTranscribing(audio)}
-              onSearchTermChange={(searchString) => setSearchTerm(searchString)}
+        <Tabs value={tab} onValueChange={setTab}>
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <TabsList>
+              <TabsTrigger value="grid">
+                <LayoutGridIcon className="h-4 w-4" />
+              </TabsTrigger>
+              <TabsTrigger value="list">
+                <LayoutListIcon className="h-4 w-4" />
+              </TabsTrigger>
+            </TabsList>
+
+            <Select value={orderBy} onValueChange={setOrderBy}>
+              <SelectTrigger className="max-w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="updatedAtDesc">
+                    {t("updatedAtDesc")}
+                  </SelectItem>
+                  <SelectItem value="createdAtDesc">
+                    {t("createdAtDesc")}
+                  </SelectItem>
+                  <SelectItem value="createdAtAsc">
+                    {t("createdAtAsc")}
+                  </SelectItem>
+                  <SelectItem value="recordingsDurationDesc">
+                    {t("recordingsDurationDesc")}
+                  </SelectItem>
+                  <SelectItem value="recordingsCountDesc">
+                    {t("recordingsCountDesc")}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="max-w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="all">{t("allLanguages")}</SelectItem>
+                  {LANGUAGES.map((lang) => (
+                    <SelectItem key={lang.code} value={lang.code}>
+                      {lang.code}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+
+            <Input
+              className="max-w-48"
+              placeholder={t("search")}
+              onChange={(e) => setQuery(e.target.value)}
             />
-          </TabsContent>
+
+            <MediaAddButton type="Audio" />
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="secondary">{t("cleanUp")}</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogTitle>{t("cleanUp")}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("cleanUpConfirmation")}
+                </AlertDialogDescription>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() =>
+                      EnjoyApp.audios
+                        .cleanUp()
+                        .then(() => toast.success(t("cleanedUpSuccessfully")))
+                    }
+                  >
+                    {t("confirm")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+
+          {audios.length === 0 ? (
+            <div className="flex items-center justify-center h-48 border border-dashed rounded-lg">
+              {t("noData")}
+            </div>
+          ) : (
+            <>
+              <TabsContent value="grid">
+                <div className="grid gap-4 grid-cols-5">
+                  {audios.map((audio) => (
+                    <AudioCard audio={audio} key={audio.id} />
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="list">
+                <AudiosTable
+                  audios={audios}
+                  onEdit={(audio) => setEditing(audio)}
+                  onDelete={(audio) => setDeleting(audio)}
+                />
+              </TabsContent>
+            </>
+          )}
         </Tabs>
       </div>
 
-      {offset > -1 && (
+      {hasMore && (
         <div className="flex items-center justify-center my-4">
           <Button variant="link" onClick={() => fetchAudios()}>
             {t("loadMore")}
@@ -199,6 +298,9 @@ export const AudiosComponent = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("editResource")}</DialogTitle>
+            <DialogDescription className="sr-only">
+              edit audio
+            </DialogDescription>
           </DialogHeader>
 
           <AudioEditForm
@@ -210,7 +312,7 @@ export const AudiosComponent = () => {
       </Dialog>
 
       <AlertDialog
-        open={!!deleting}
+        open={Boolean(deleting)}
         onOpenChange={(value) => {
           if (value) return;
           setDeleting(null);
@@ -220,63 +322,26 @@ export const AudiosComponent = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("deleteResource")}</AlertDialogTitle>
             <AlertDialogDescription>
-              <p className="break-all">
+              <span className="break-all">
                 {t("deleteResourceConfirmation", {
                   name: deleting?.name || "",
                 })}
-              </p>
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive"
-              onClick={async () => {
+              onClick={() => {
                 if (!deleting) return;
-                await EnjoyApp.audios.destroy(deleting.id);
-                setDeleting(null);
+                EnjoyApp.audios
+                  .destroy(deleting.id)
+                  .catch((err) => toast.error(err.message))
+                  .finally(() => setDeleting(null));
               }}
             >
               {t("delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={!!transcribing}
-        onOpenChange={(value) => {
-          if (value) return;
-          setTranscribing(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("transcribe")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              <p className="break-all">
-                {t("transcribeAudioConfirmation", {
-                  name: transcribing?.name || "",
-                })}
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive"
-              onClick={async () => {
-                if (!transcribing) return;
-
-                transcribe(transcribing.src, {
-                  targetId: transcribing.id,
-                  targetType: "Audio",
-                }).finally(() => {
-                  setTranscribing(null);
-                });
-              }}
-            >
-              {t("transcribe")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

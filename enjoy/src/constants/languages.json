@@ -9,10 +9,14 @@
   },
   {
     "code": "zh-CN",
-    "name": "简体中文"
+    "name": "普通话"
   },
   {
-    "code": "jp-JP",
+    "code": "zh-HK",
+    "name": "粤语"
+  },
+  {
+    "code": "ja-JP",
     "name": "日本語"
   },
   {
@@ -34,5 +38,13 @@
   {
     "code": "fr-FR",
     "name": "Français"
+  },
+  {
+    "code": "th-TH",
+    "name": "แบบไทย"
+  },
+  {
+    "code": "vi-VN",
+    "name": "Tiếng Việt"
   }
 ]

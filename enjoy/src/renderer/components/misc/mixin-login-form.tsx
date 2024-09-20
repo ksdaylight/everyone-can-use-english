@@ -6,6 +6,8 @@ import {
   Sheet,
   SheetTrigger,
   SheetContent,
+  SheetHeader,
+  SheetTitle,
 } from "@renderer/components/ui";
 import { useContext, useEffect, useState } from "react";
 import { AppSettingsProviderContext } from "@renderer/context";
@@ -32,7 +34,14 @@ export const MixinLoginButton = () => {
           />
         </Button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="h-screen">
+      <SheetContent
+        side="bottom"
+        className="h-screen"
+        aria-describedby={undefined}
+      >
+        <SheetHeader>
+          <SheetTitle className="sr-only">Mixin Messenger Login</SheetTitle>
+        </SheetHeader>
         <div className="w-full h-full flex">
           <div className="m-auto">{open && <MixinLoginForm />}</div>
         </div>
@@ -137,7 +146,7 @@ export const MixinLoginForm = () => {
                   setCountdown(120);
                 })
                 .catch((err) => {
-                  toast.error(err.message);
+                  toast.error(err.response?.data || err.message);
                 })
                 .finally(() => {
                   setLoading(false);
@@ -160,7 +169,7 @@ export const MixinLoginForm = () => {
                   if (user?.id && user?.accessToken) login(user);
                 })
                 .catch((err) => {
-                  toast.error(err.message);
+                  toast.error(err.response?.data || err.message);
                 });
             }}
           >

@@ -14,15 +14,18 @@ import settings from "@main/settings";
 import downloader from "@main/downloader";
 import whisper from "@main/whisper";
 import fs from "fs-extra";
-import "@main/i18n";
 import log from "@main/logger";
-import { WEB_API_URL, REPO_URL } from "@/constants";
+import { REPO_URL, WS_URL } from "@/constants";
 import { AudibleProvider, TedProvider, YoutubeProvider } from "@main/providers";
 import Ffmpeg from "@main/ffmpeg";
 import { Waveform } from "./waveform";
 import url from "url";
 import echogarden from "./echogarden";
 import camdict from "./camdict";
+import dict from "./dict";
+import mdict from "./mdict";
+import decompresser from "./decompresser";
+import { UserSetting } from "@main/db/models";
 
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,7 +43,7 @@ const main = {
   init: () => {},
 };
 
-main.init = () => {
+main.init = async () => {
   if (main.win) {
     main.win.show();
     return;
@@ -50,6 +53,8 @@ main.init = () => {
   db.registerIpcHandlers();
 
   camdict.registerIpcHandlers();
+  dict.registerIpcHandlers();
+  mdict.registerIpcHandlers();
 
   // Prepare Settings
   settings.registerIpcHandlers();
@@ -65,6 +70,8 @@ main.init = () => {
 
   // Downloader
   downloader.registerIpcHandlers();
+
+  decompresser.registerIpcHandlers();
 
   // ffmpeg
   ffmpeg.registerIpcHandlers();
@@ -280,8 +287,20 @@ main.init = () => {
   });
 
   // App options
-  ipcMain.handle("app-reset", () => {
-    fs.removeSync(settings.userDataPath());
+  ipcMain.handle("app-platform-info", () => {
+    return {
+      platform: process.platform,
+      arch: process.arch,
+      version: process.getSystemVersion(),
+    };
+  });
+
+  ipcMain.handle("app-reset", async () => {
+    const userDataPath = settings.userDataPath();
+
+    await db.disconnect();
+
+    fs.removeSync(userDataPath);
     fs.removeSync(settings.file());
 
     app.relaunch();
@@ -289,10 +308,7 @@ main.init = () => {
   });
 
   ipcMain.handle("app-reset-settings", () => {
-    fs.removeSync(settings.file());
-
-    app.relaunch();
-    app.exit();
+    UserSetting.clear();
   });
 
   ipcMain.handle("app-relaunch", () => {
@@ -315,7 +331,12 @@ main.init = () => {
   });
 
   ipcMain.handle("app-api-url", () => {
-    return process.env.WEB_API_URL || WEB_API_URL;
+    return settings.apiUrl();
+  });
+
+  ipcMain.handle("app-ws-url", () => {
+    const wsUrl = settings.getSync("wsUrl");
+    return process.env.WS_URL || wsUrl || WS_URL;
   });
 
   ipcMain.handle("app-quit", () => {
@@ -370,6 +391,44 @@ ${log}
       }
     }
   );
+
+  ipcMain.handle("app-disk-usage", () => {
+    const paths: { [key: string]: string } = {
+      library: settings.libraryPath(),
+      database: settings.dbPath(),
+      settings: settings.file(),
+      audios: path.join(settings.userDataPath(), "audios"),
+      videos: path.join(settings.userDataPath(), "videos"),
+      segments: path.join(settings.userDataPath(), "segments"),
+      speeches: path.join(settings.userDataPath(), "speeches"),
+      recordings: path.join(settings.userDataPath(), "recordings"),
+      whisper: path.join(settings.libraryPath(), "whisper"),
+      waveforms: path.join(settings.libraryPath(), "waveforms"),
+      logs: path.join(settings.libraryPath(), "logs"),
+      cache: settings.cachePath(),
+    };
+
+    const sizeSync = (p: string): number => {
+      const stat = fs.statSync(p);
+      if (stat.isFile()) return stat.size;
+      else if (stat.isDirectory())
+        return fs
+          .readdirSync(p)
+          .reduce((a, e) => a + sizeSync(path.join(p, e)), 0);
+      else return 0; // can't take size of a stream/symlink/socket/
+    };
+
+    return Object.keys(paths).map((key) => {
+      const p = paths[key];
+      const size = sizeSync(p);
+
+      return {
+        name: key,
+        path: p,
+        size,
+      };
+    });
+  });
 
   // Shell
   ipcMain.handle("shell-open-external", (_event, url) => {
@@ -427,6 +486,28 @@ ${log}
   mainWindow.webContents.setWindowOpenHandler(() => {
     return { action: "allow" };
   });
+
+  // Capture stderr & stdout and send them to renderer
+  const originalStderrWrite = process.stderr.write.bind(process.stderr);
+  process.stderr.write = (chunk, encoding?, callback?) => {
+    // Remove ANSI color codes
+    const output = chunk
+      .toString()
+      .replace(/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]/g, "");
+    mainWindow.webContents.send("app-on-cmd-output", output);
+
+    return originalStderrWrite(chunk, encoding, callback);
+  };
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (chunk, encoding?, callback?) => {
+    // Remove ANSI color codes
+    const output = chunk
+      .toString()
+      .replace(/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]/g, "");
+    mainWindow.webContents.send("app-on-cmd-output", output);
+
+    return originalStdoutWrite(chunk, encoding, callback);
+  };
 
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {

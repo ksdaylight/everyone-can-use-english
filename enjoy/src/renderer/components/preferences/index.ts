@@ -1,5 +1,6 @@
 export * from "./preferences";
 export * from "./about";
+export * from "./api-url-settings";
 export * from "./appearance";
 
 export * from "./hotkeys";
@@ -12,8 +13,7 @@ export * from "./learning-language-settings";
 export * from "./default-engine-settings";
 export * from "./openai-settings";
 export * from "./library-settings";
-export * from "./whisper-settings";
-export * from "./google-generative-ai-settings";
+export * from "./stt-settings";
 
 export * from "./user-settings";
 export * from "./email-settings";
@@ -31,3 +31,9 @@ export * from "./anki-sync";
 export * from "./azure-api-settings";
 
 export * from "./whisper-model-options";
+export * from "./network-state";
+
+export * from "./recorder-settings";
+
+export * from "./vocabulary-settings";
+export * from "./dict-settings";

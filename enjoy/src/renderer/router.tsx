@@ -18,6 +18,12 @@ import Home from "./pages/home";
 import Community from "./pages/community";
 import StoryPreview from "./pages/story-preview";
 import Notes from "./pages/notes";
+import PronunciationAssessmentsIndex from "./pages/pronunciation-assessments/index";
+import PronunciationAssessmentsNew from "./pages/pronunciation-assessments/new";
+import Courses from "./pages/courses/index";
+import Course from "./pages/courses/show";
+import Chapter from "./pages/courses/chapter";
+import Chats from "./pages/chats";
 
 export default createHashRouter([
   {
@@ -26,6 +32,22 @@ export default createHashRouter([
     errorElement: <ErrorPage />,
     children: [
       { index: true, element: <Home /> },
+      {
+        path: "/chats",
+        element: <Chats />,
+      },
+      {
+        path: "/courses",
+        element: <Courses />,
+      },
+      {
+        path: "/courses/:id",
+        element: <Course />,
+      },
+      {
+        path: "/courses/:id/chapters/:sequence",
+        element: <Chapter />,
+      },
       {
         path: "/community",
         element: <Community />,
@@ -45,6 +67,14 @@ export default createHashRouter([
       {
         path: "/conversations/:id",
         element: <Conversation />,
+      },
+      {
+        path: "/pronunciation_assessments",
+        element: <PronunciationAssessmentsIndex />,
+      },
+      {
+        path: "/pronunciation_assessments/new",
+        element: <PronunciationAssessmentsNew />,
       },
       {
         path: "/vocabulary",

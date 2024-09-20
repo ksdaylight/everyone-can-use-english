@@ -11,11 +11,19 @@ const logger = log.scope("db/handlers/audios-handler");
 
 class AudiosHandler {
   private async findAll(
-    event: IpcMainEvent,
-    options: FindOptions<Attributes<Audio>>,
-    searchTerm?: string | undefined
+    _event: IpcMainEvent,
+    options: FindOptions<Attributes<Audio>> & { query?: string }
   ) {
-    return Audio.findAll({
+    const { query, where = {} } = options || {};
+    delete options.query;
+    delete options.where;
+
+    if (query) {
+      (where as any).name = {
+        [Op.like]: `%${query}%`,
+      };
+    }
+    const audios = await Audio.findAll({
       order: [["updatedAt", "DESC"]],
       include: [
         {
@@ -25,48 +33,33 @@ class AudiosHandler {
           required: false,
         },
       ],
-      where: searchTerm ? { name: { [Op.like]: searchTerm } } : undefined,
+      where,
       ...options,
-    })
-      .then((audios) => {
-        if (!audios) {
-          return [];
-        }
-        return audios.map((audio) => audio.toJSON());
-      })
-      .catch((err) => {
-        event.sender.send("on-notification", {
-          type: "error",
-          message: err.message,
-        });
-      });
+      group: ["Audio.id"],
+    });
+
+    if (!audios) {
+      return [];
+    }
+    return audios.map((audio) => audio.toJSON());
   }
 
   private async findOne(
-    event: IpcMainEvent,
+    _event: IpcMainEvent,
     where: WhereOptions<Attributes<Audio>>
   ) {
-    return Audio.findOne({
+    const audio = await Audio.findOne({
       where: {
         ...where,
       },
-    })
-      .then((audio) => {
-        if (!audio) return;
+    });
+    if (!audio) return;
 
-        if (!audio.isSynced) {
-          audio.sync().catch(() => {});
-        }
+    if (!audio.isSynced) {
+      audio.sync().catch(() => {});
+    }
 
-        return audio.toJSON();
-      })
-      .catch((err) => {
-        logger.error(err);
-        event.sender.send("on-notification", {
-          type: "error",
-          message: err.message,
-        });
-      });
+    return audio.toJSON();
   }
 
   private async create(
@@ -81,22 +74,15 @@ class AudiosHandler {
     let file = uri;
     let source;
     if (uri.startsWith("http")) {
-      try {
-        if (youtubedr.validateYtURL(uri)) {
-          file = await youtubedr.autoDownload(uri);
-        } else {
-          file = await downloader.download(uri, {
-            webContents: event.sender,
-          });
-        }
-        if (!file) throw new Error("Failed to download file");
-        source = uri;
-      } catch (err) {
-        return event.sender.send("on-notification", {
-          type: "error",
-          message: t("models.audio.failedToDownloadFile", { file: uri }),
+      if (youtubedr.validateYtURL(uri)) {
+        file = await youtubedr.autoDownload(uri);
+      } else {
+        file = await downloader.download(uri, {
+          webContents: event.sender,
         });
       }
+      if (!file) throw new Error("Failed to download file");
+      source = uri;
     }
 
     try {
@@ -121,73 +107,49 @@ class AudiosHandler {
 
       return audio.toJSON();
     } catch (err) {
-      return event.sender.send("on-notification", {
-        type: "error",
-        message: t("models.audio.failedToAdd", { error: err.message }),
-      });
+      logger.error(err);
+      throw err;
     }
   }
 
   private async update(
-    event: IpcMainEvent,
+    _event: IpcMainEvent,
     id: string,
     params: Attributes<Audio>
   ) {
-    const { name, description, metadata } = params;
+    const { name, description, metadata, language, coverUrl, source } = params;
 
-    return Audio.findOne({
-      where: { id },
-    })
-      .then((audio) => {
-        if (!audio) {
-          throw new Error(t("models.audio.notFound"));
-        }
-        audio.update({ name, description, metadata });
-      })
-      .catch((err) => {
-        event.sender.send("on-notification", {
-          type: "error",
-          message: err.message,
-        });
-      });
+    const audio = await Audio.findByPk(id);
+
+    if (!audio) {
+      throw new Error(t("models.audio.notFound"));
+    }
+    return await audio.update({
+      name,
+      description,
+      metadata,
+      language,
+      coverUrl,
+      source,
+    });
   }
 
-  private async destroy(event: IpcMainEvent, id: string) {
-    return Audio.findOne({
-      where: { id },
-    }).then((audio) => {
-      if (!audio) {
-        event.sender.send("on-notification", {
-          type: "error",
-          message: t("models.audio.notFound"),
-        });
-      }
-      audio.destroy();
-    });
+  private async destroy(_event: IpcMainEvent, id: string) {
+    const audio = await Audio.findByPk(id);
+
+    if (!audio) {
+      throw new Error(t("models.audio.notFound"));
+    }
+    return await audio.destroy();
   }
 
   private async upload(event: IpcMainEvent, id: string) {
-    const audio = await Audio.findOne({
-      where: { id },
-    });
+    const audio = await Audio.findByPk(id);
     if (!audio) {
-      event.sender.send("on-notification", {
-        type: "error",
-        message: t("models.audio.notFound"),
-      });
+      throw new Error(t("models.audio.notFound"));
     }
 
-    audio
-      .upload()
-      .then((res) => {
-        return res;
-      })
-      .catch((err) => {
-        event.sender.send("on-notification", {
-          type: "error",
-          message: err.message,
-        });
-      });
+    return await audio.upload();
   }
 
   private async crop(
@@ -195,9 +157,7 @@ class AudiosHandler {
     id: string,
     params: { startTime: number; endTime: number }
   ) {
-    const audio = await Audio.findOne({
-      where: { id },
-    });
+    const audio = await Audio.findByPk(id);
     if (!audio) {
       throw new Error(t("models.audio.notFound"));
     }
@@ -208,6 +168,16 @@ class AudiosHandler {
     return pathToEnjoyUrl(output);
   }
 
+  private async cleanUp() {
+    const audios = await Audio.findAll();
+
+    for (const audio of audios) {
+      if (!audio.src) {
+        audio.destroy();
+      }
+    }
+  }
+
   register() {
     ipcMain.handle("audios-find-all", this.findAll);
     ipcMain.handle("audios-find-one", this.findOne);
@@ -216,6 +186,18 @@ class AudiosHandler {
     ipcMain.handle("audios-destroy", this.destroy);
     ipcMain.handle("audios-upload", this.upload);
     ipcMain.handle("audios-crop", this.crop);
+    ipcMain.handle("audios-clean-up", this.cleanUp);
+  }
+
+  unregister() {
+    ipcMain.removeHandler("audios-find-all");
+    ipcMain.removeHandler("audios-find-one");
+    ipcMain.removeHandler("audios-create");
+    ipcMain.removeHandler("audios-update");
+    ipcMain.removeHandler("audios-destroy");
+    ipcMain.removeHandler("audios-upload");
+    ipcMain.removeHandler("audios-crop");
+    ipcMain.removeHandler("audios-clean-up");
   }
 }
 

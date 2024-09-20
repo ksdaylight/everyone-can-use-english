@@ -10,12 +10,10 @@ import {
   SheetContent,
   ScrollArea,
   toast,
+  SheetHeader,
+  SheetTitle,
 } from "@renderer/components/ui";
-import {
-  ConversationCard,
-  ConversationForm,
-  LoaderSpin,
-} from "@renderer/components";
+import { ConversationCard, ConversationForm } from "@renderer/components";
 import { useState, useEffect, useContext, useReducer } from "react";
 import { ChevronLeftIcon, LoaderIcon } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -39,17 +37,17 @@ export default () => {
   const [creating, setCreating] = useState<boolean>(false);
   const [preset, setPreset] = useState<any>({});
   const [config, setConfig] = useState<any>({
-    gptPresets: [],
+    gptPresets: GPT_PRESETS,
     customPreset: {},
     ttsPreset: {
       key: "tts",
       name: "TTS",
-      engine: currentEngine.name,
+      engine: currentEngine?.name,
       configuration: {
         type: "tts",
         tts: {
-          engine: currentEngine.name,
-          model: "tts-1",
+          engine: currentEngine?.name,
+          model: currentEngine?.name === "enjoyai" ? "openai/tts-1" : "tts-1",
           voice: "alloy",
         },
       },
@@ -91,7 +89,7 @@ export default () => {
       .findAll({
         order: [["updatedAt", "DESC"]],
         limit,
-        offset: conversations.length,
+        offset: conversations?.length || 0,
       })
       .then((_conversations) => {
         if (_conversations.length === 0) {
@@ -135,7 +133,7 @@ export default () => {
     let presets = GPT_PRESETS;
     let defaultGptPreset = {
       key: "custom",
-      engine: "enjoyai",
+      engine: currentEngine.name,
       name: t("custom"),
       configuration: {
         type: "gpt",
@@ -143,18 +141,19 @@ export default () => {
         model: currentEngine.models.default,
         tts: {
           engine: currentEngine.name,
+          model: currentEngine.name === "enjoyai" ? "openai/tts-1" : "tts-1",
         },
       },
     };
     let defaultTtsPreset = {
       key: "tts",
       name: "TTS",
-      engine: "enjoyai",
+      engine: currentEngine.name,
       configuration: {
         type: "tts",
         tts: {
           engine: currentEngine.name,
-          model: "tts-1",
+          model: currentEngine.name === "enjoyai" ? "openai/tts-1" : "tts-1",
           voice: "alloy",
         },
       },
@@ -183,9 +182,9 @@ export default () => {
       defaultGpt.configuration.tts.engine = currentEngine.name;
       defaultGptPreset = defaultGpt;
 
-      defaultTts.engine = currentEngine.name;
-      defaultTts.configuration.tts.engine = currentEngine.name;
-      defaultTtsPreset = defaultTts;
+      if (defaultTts.engine === currentEngine.name) {
+        defaultTtsPreset = defaultTts;
+      }
     } catch (error) {
       console.error(error);
     }
@@ -199,6 +198,7 @@ export default () => {
           tts: {
             ...preset.configuration.tts,
             engine: currentEngine.name,
+            model: currentEngine.name === "enjoyai" ? "openai/tts-1" : "tts-1",
           },
         },
       })
@@ -213,7 +213,7 @@ export default () => {
 
   useEffect(() => {
     preparePresets();
-  }, []);
+  }, [currentEngine]);
 
   return (
     <div className="h-full px-4 py-6 lg:px-8 flex flex-col">
@@ -236,7 +236,7 @@ export default () => {
               </Button>
             </DialogTrigger>
 
-            <DialogContent>
+            <DialogContent aria-describedby={undefined}>
               <DialogHeader>
                 <DialogTitle>{t("selectAiRole")}</DialogTitle>
               </DialogHeader>
@@ -246,8 +246,6 @@ export default () => {
                   {t("chooseFromPresetGpts")}
                 </div>
                 <ScrollArea className="h-64 pr-4">
-                  {config.gptPresets.length === 0 && <LoaderSpin />}
-
                   {config.gptPresets.map((preset: any) => (
                     <DialogTrigger
                       key={preset.key}
@@ -305,8 +303,13 @@ export default () => {
           </Dialog>
 
           <Sheet open={creating} onOpenChange={(value) => setCreating(value)}>
-            <SheetContent className="p-0">
-              <div className="h-screen">
+            <SheetContent className="p-0" aria-describedby={undefined}>
+              <SheetHeader>
+                <SheetTitle className="sr-only">
+                  {t("startConversation")}
+                </SheetTitle>
+              </SheetHeader>
+              <div className="h-screen relative">
                 <ConversationForm
                   conversation={preset}
                   onFinish={() => setCreating(false)}

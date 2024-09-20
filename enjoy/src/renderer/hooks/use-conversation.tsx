@@ -3,11 +3,10 @@ import {
   AISettingsProviderContext,
 } from "@renderer/context";
 import { useContext } from "react";
-import { ChatMessageHistory, BufferMemory } from "langchain/memory/index";
+import { ChatMessageHistory, BufferMemory } from "langchain/memory";
 import { ConversationChain } from "langchain/chains";
 import { ChatOpenAI } from "@langchain/openai";
-import { ChatOllama } from "@langchain/community/chat_models/ollama";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatOllama } from "@langchain/ollama";
 import {
   ChatPromptTemplate,
   MessagesPlaceholder,
@@ -15,6 +14,8 @@ import {
 import OpenAI from "openai";
 import { type LLMResult } from "@langchain/core/outputs";
 import { v4 } from "uuid";
+import * as sdk from "microsoft-cognitiveservices-speech-sdk";
+import { t } from "i18next";
 import { Client } from "@/api";
 
 // 定义缓存机制
@@ -27,9 +28,8 @@ const CACHE_DURATION = 60 * 60 * 1000; // 缓存有效期为 1 小时（以毫�
 export const useConversation = () => {
   const { EnjoyApp, user, apiUrl, anki, learningLanguage, azureApi } =
     useContext(AppSettingsProviderContext);
-  const { openai, googleGenerativeAi, currentEngine } = useContext(
-    AISettingsProviderContext
-  );
+  // const { googleGenerativeAi } = useContext(AISettingsProviderContext);
+  const { openai, currentEngine } = useContext(AISettingsProviderContext);
 
   const pickLlm = (conversation: ConversationType) => {
     const {
@@ -80,17 +80,6 @@ export const useConversation = () => {
         temperature,
         frequencyPenalty,
         presencePenalty,
-        maxRetries: 2,
-      });
-    } else if (conversation.engine === "googleGenerativeAi") {
-      if (!googleGenerativeAi)
-        throw new Error("Google Generative AI API key is required");
-
-      return new ChatGoogleGenerativeAI({
-        apiKey: googleGenerativeAi.key,
-        modelName: model,
-        temperature: temperature,
-        maxOutputTokens: maxTokens,
         maxRetries: 2,
       });
     }
@@ -339,7 +328,7 @@ ${grammarDeckString}.
     const chain = new ConversationChain({
       llm: llm as any,
       memory,
-      prompt,
+      prompt: prompt as any,
       verbose: true,
     });
     let response: LLMResult["generations"][0] = [];
@@ -477,6 +466,44 @@ ${grammarDeckString}.
   };
   const tts = async (params: Partial<SpeechType>) => {
     const { configuration } = params;
+    const { engine, model = "tts-1", voice } = configuration || {};
+
+    let buffer;
+
+    const ssmlOutput = generateSSMLText(params.text, frSpeakers);
+    buffer = await EnjoyApp.recordings.askAzureTTS(
+      ssmlOutput,
+      azureApi.key,
+      azureApi.region
+    );
+
+    // if (model.match(/^(openai|tts-)/)) {
+    //   buffer = await openaiTTS(params);
+    // } else if (model.startsWith("azure")) {
+    //   // buffer = await azureTTS(params);
+    //   buffer = await openaiTTS(params);
+    // }
+
+    return EnjoyApp.speeches.create(
+      {
+        text: params.text,
+        sourceType: params.sourceType,
+        sourceId: params.sourceId,
+        configuration: {
+          engine,
+          model,
+          voice,
+        },
+      },
+      {
+        type: "audio/mp3",
+        arrayBuffer: buffer,
+      } //要改顺序
+    );
+  };
+
+  const openaiTTS = async (params: Partial<SpeechType>) => {
+    const { configuration } = params;
     const {
       engine = currentEngine.name,
       model = "tts-1",
@@ -501,7 +528,7 @@ ${grammarDeckString}.
         maxRetries: 1,
       });
     } else {
-      throw new Error("OpenAI API key is required");
+      throw new Error(t("openaiKeyRequired"));
     }
 
     // const file = await client.audio.speech.create({

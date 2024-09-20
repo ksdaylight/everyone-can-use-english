@@ -1,6 +1,9 @@
-import { TimelineEntry } from "echogarden/dist/utilities/Timeline";
-import { useState } from "react";
+import { TimelineEntry } from "echogarden/dist/utilities/Timeline.d.js";
+import { useContext, useState } from "react";
 import { WavesurferPlayer } from "@/renderer/components/misc";
+import { AppSettingsProviderContext } from "@/renderer/context";
+import { convertWordIpaToNormal } from "@/utils";
+import { Vocabulary } from "@renderer/components";
 
 export const NoteSemgent = (props: {
   segment: SegmentType;
@@ -8,12 +11,23 @@ export const NoteSemgent = (props: {
 }) => {
   const { segment, notes } = props;
   const caption: TimelineEntry = segment.caption;
+  const { learningLanguage, ipaMappings } = useContext(
+    AppSettingsProviderContext
+  );
 
   const [notedquoteIndices, setNotedquoteIndices] = useState<number[]>([]);
 
   let words = caption.text.split(" ");
+  const language = segment.target?.language || learningLanguage;
   const ipas = caption.timeline.map((w) =>
-    w.timeline.map((t) => t.timeline.map((s) => s.text))
+    w.timeline.map((t) =>
+      language.startsWith("en")
+        ? convertWordIpaToNormal(
+            t.timeline.map((s) => s.text),
+            { mappings: ipaMappings }
+          ).join("")
+        : t.text
+    )
   );
 
   if (words.length !== caption.timeline.length) {
@@ -31,18 +45,18 @@ export const NoteSemgent = (props: {
             id={`note-segment-${segment.id}-${index}`}
           >
             <div
-              className={`select-text font-serif text-lg xl:text-xl 2xl:text-2xl p-1 ${
+              className={`select-text font-serif text-base xl:text-lg 2xl:text-lg p-1 ${
                 notedquoteIndices.includes(index)
                   ? "border-b border-red-500 border-dashed"
                   : ""
               }
           `}
             >
-              {word}
+              <Vocabulary word={word} context={caption.text} />
             </div>
 
             <div
-              className={`select-text text-sm 2xl:text-base text-muted-foreground font-code mb-1 ${
+              className={`select-text text-xs 2xl:text-sm text-muted-foreground font-code mb-1 ${
                 index === 0 ? "before:content-['/']" : ""
               } ${
                 index === caption.timeline.length - 1

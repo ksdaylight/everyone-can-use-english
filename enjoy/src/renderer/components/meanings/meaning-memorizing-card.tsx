@@ -4,6 +4,7 @@ import { Button, ScrollArea, Separator } from "@renderer/components/ui";
 import Mark from "mark.js";
 import { useHotkeys } from "react-hotkeys-hook";
 import { HotKeysSettingsProviderContext } from "@renderer/context";
+import { Sentence } from "@renderer/components";
 
 export const MeaningMemorizingCard = (props: { meaning: MeaningType }) => {
   const {
@@ -20,13 +21,11 @@ export const MeaningMemorizingCard = (props: { meaning: MeaningType }) => {
 
   useHotkeys(
     [currentHotkeys.PlayOrPause],
-    (keyboardEvent, _hotkeyEvent) => {
-      keyboardEvent.preventDefault();
-
+    () => {
       document.getElementById("vocabulary-toggle-side-button").click();
     },
     {
-      enabled,
+      preventDefault: true,
     },
     [side]
   );
@@ -75,7 +74,7 @@ const FrontSide = (props: {
           <div ref={ref} className="">
             {lookups.map((lookup) => (
               <p key={lookup.id} className="mb-8">
-                {lookup.context}
+                <Sentence sentence={lookup.context} />
               </p>
             ))}
           </div>
@@ -161,8 +160,10 @@ const BackSide = (props: { meaning: MeaningType; onFlip: () => void }) => {
           <div ref={ref} className="">
             {lookups.map((lookup) => (
               <div key={lookup.id} className="mb-8">
-                <div className="mb-2">{lookup.context}</div>
-                <div className="text-base">{lookup.contextTranslation}</div>
+                <Sentence sentence={lookup.context} />
+                <div className="text-base mt-2">
+                  {lookup.contextTranslation}
+                </div>
               </div>
             ))}
           </div>

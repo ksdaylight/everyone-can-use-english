@@ -13,11 +13,10 @@ import {
   AllowNull,
   AfterFind,
 } from "sequelize-typescript";
-import { Audio, Transcription, Video } from "@main/db/models";
+import { Audio, Transcription, UserSetting, Video } from "@main/db/models";
 import mainWindow from "@main/window";
 import log from "@main/logger";
 import { Client } from "@/api";
-import { WEB_API_URL } from "@/constants";
 import settings from "@main/settings";
 import storage from "@/main/storage";
 import path from "path";
@@ -70,6 +69,9 @@ export class Segment extends Model<Segment> {
   @Column(DataType.DATE)
   uploadedAt: Date;
 
+  @Column(DataType.VIRTUAL)
+  target: Audio | Video;
+
   @BelongsTo(() => Audio, { foreignKey: "targetId", constraints: false })
   audio: Audio;
 
@@ -107,8 +109,8 @@ export class Segment extends Model<Segment> {
     if (this.isSynced) return;
 
     const webApi = new Client({
-      baseUrl: process.env.WEB_API_URL || WEB_API_URL,
-      accessToken: settings.getSync("user.accessToken") as string,
+      baseUrl: settings.apiUrl(),
+      accessToken: (await UserSetting.accessToken()) as string,
       logger,
     });
     return webApi.syncSegment(this.toJSON()).then(() => {
@@ -208,6 +210,22 @@ export class Segment extends Model<Segment> {
         logger.error("sync error", err);
       });
     });
+
+    if (!Array.isArray(segments)) segments = [segments];
+
+    for (const instance of segments) {
+      if (instance.targetType === "Audio" && instance.audio) {
+        instance.target = instance.audio.toJSON();
+      }
+      if (instance.targetType === "Video" && instance.video) {
+        instance.target = instance.video.toJSON();
+      }
+      // To prevent mistakes:
+      delete instance.audio;
+      delete instance.dataValues.audio;
+      delete instance.video;
+      delete instance.dataValues.video;
+    }
   }
 
   @AfterCreate

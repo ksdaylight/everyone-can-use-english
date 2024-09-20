@@ -21,9 +21,8 @@ import settings from "@main/settings";
 import OpenAI, { type ClientOptions } from "openai";
 import { t } from "i18next";
 import { hashFile } from "@main/utils";
-import { Audio, Message } from "@main/db/models";
+import { Audio, Message, UserSetting } from "@main/db/models";
 import log from "@main/logger";
-import { WEB_API_URL } from "@/constants";
 import proxyAgent from "@main/proxy-agent";
 
 const logger = log.scope("db/models/speech");
@@ -123,6 +122,7 @@ export class Speech extends Model<Speech> {
     if (!Array.isArray(findResult)) findResult = [findResult];
 
     for (const instance of findResult) {
+      if (!instance) continue;
       if (instance.sourceType === "Message" && instance.message !== undefined) {
         instance.source = instance.message;
       }
@@ -180,8 +180,8 @@ export class Speech extends Model<Speech> {
     let openaiConfig: ClientOptions = {};
     if (engine === "enjoyai") {
       openaiConfig = {
-        apiKey: settings.getSync("user.accessToken") as string,
-        baseURL: `${process.env.WEB_API_URL || WEB_API_URL}/api/ai`,
+        apiKey: (await UserSetting.accessToken()) as string,
+        baseURL: `${settings.apiUrl()}/api/ai`,
       };
     } else if (engine === "openai") {
       const defaultConfig = settings.getSync("openai") as LlmProviderType;

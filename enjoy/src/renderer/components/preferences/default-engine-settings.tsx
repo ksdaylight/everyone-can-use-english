@@ -52,14 +52,29 @@ export const DefaultEngineSettings = () => {
     },
   });
 
+  const modelOptions = () => {
+    if (form.watch("name") === "openai") {
+      const customModels = openai?.models?.split(",")?.filter(Boolean);
+
+      return customModels?.length ? customModels : providers.openai.models;
+    } else {
+      return providers.enjoyai.models;
+    }
+  };
+
   const onSubmit = async (data: z.infer<typeof gptEngineSchema>) => {
     const { name, models } = data;
 
-    models.default ||= providers[name].models[0];
+    let options = [...providers[name].models];
+    if (name === "openai" && openai?.models) {
+      options = openai.models.split(",");
+    }
+
+    models.default ||= options[0];
     Object.keys(models).forEach((key: keyof typeof models) => {
-      if (!providers[name].models.includes(models[key])) {
+      if (!options.includes(models[key])) {
         if (key === "default") {
-          models[key] = providers[name].models[0];
+          models[key] = options[0];
         } else {
           delete models[key];
         }
@@ -150,13 +165,11 @@ export const DefaultEngineSettings = () => {
                           ></SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {providers[form.watch("name")].models.map(
-                            (model: string) => (
-                              <SelectItem key={model} value={model}>
-                                {model}
-                              </SelectItem>
-                            )
-                          )}
+                          {modelOptions().map((model: string) => (
+                            <SelectItem key={model} value={model}>
+                              {model}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -185,13 +198,11 @@ export const DefaultEngineSettings = () => {
                               ></SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                              {providers[form.watch("name")].models.map(
-                                (model: string) => (
-                                  <SelectItem key={model} value={model}>
-                                    {model}
-                                  </SelectItem>
-                                )
-                              )}
+                              {modelOptions().map((model: string) => (
+                                <SelectItem key={model} value={model}>
+                                  {model}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -218,13 +229,11 @@ export const DefaultEngineSettings = () => {
                               ></SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                              {providers[form.watch("name")].models.map(
-                                (model: string) => (
-                                  <SelectItem key={model} value={model}>
-                                    {model}
-                                  </SelectItem>
-                                )
-                              )}
+                              {modelOptions().map((model: string) => (
+                                <SelectItem key={model} value={model}>
+                                  {model}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -251,13 +260,11 @@ export const DefaultEngineSettings = () => {
                               ></SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                              {providers[form.watch("name")].models.map(
-                                (model: string) => (
-                                  <SelectItem key={model} value={model}>
-                                    {model}
-                                  </SelectItem>
-                                )
-                              )}
+                              {modelOptions().map((model: string) => (
+                                <SelectItem key={model} value={model}>
+                                  {model}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -284,13 +291,11 @@ export const DefaultEngineSettings = () => {
                               ></SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                              {providers[form.watch("name")].models.map(
-                                (model: string) => (
-                                  <SelectItem key={model} value={model}>
-                                    {model}
-                                  </SelectItem>
-                                )
-                              )}
+                              {modelOptions().map((model: string) => (
+                                <SelectItem key={model} value={model}>
+                                  {model}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>

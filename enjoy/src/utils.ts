@@ -49,7 +49,7 @@ export function milisecondsToTimestamp(ms: number) {
   const hours = Math.floor(ms / 3600000).toString();
   const minutes = Math.floor((ms % 3600000) / 60000).toString();
   const seconds = Math.floor(((ms % 360000) % 60000) / 1000).toString();
-  const milliseconds = Math.floor(((ms % 360000) % 60000) % 1000).toString();
+  const milliseconds = Math.floor(ms % 1000).toString();
   return `${hours.padStart(2, "0")}:${minutes.padStart(
     2,
     "0"
@@ -84,13 +84,23 @@ export const convertWordIpaToNormal = (
 
     let j = i - 1;
     for (; j > 0 && j > i - 2; j--) {
-      if (consonantsRegex.test(ipas[j]) && !consonantsRegex.test(ipas[j - 1])) {
+      if (
+        consonantsRegex.test(converted[j]) &&
+        !IPA_CONSONANTS.trill.includes(converted[j]) &&
+        !IPA_CONSONANTS.approximant.includes(converted[j]) &&
+        !IPA_CONSONANTS.lateralApproximant.includes(converted[j])
+      )
+        break;
+      if (
+        consonantsRegex.test(converted[j]) &&
+        !consonantsRegex.test(converted[j - 1])
+      ) {
         break;
       }
     }
 
     if (isVowel && mark) {
-      if (ipas[j]) {
+      if (converted[j] && consonantsRegex.test(converted[j])) {
         converted[j] = mark[0] + converted[j];
       } else {
         converted[i] = mark[0] + converted[i];
@@ -117,3 +127,28 @@ export const convertIpaToNormal = (
     return converted;
   }
 };
+
+// make size of bytes human readable
+export const humanFileSize = (bytes: number, si: boolean = false) => {
+  const thresh = si ? 1000 : 1024;
+  if (Math.abs(bytes) < thresh) {
+    return bytes + " B";
+  }
+  const units = si
+    ? ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
+    : ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
+  let u = -1;
+  const r = 10;
+  do {
+    bytes /= thresh;
+    ++u;
+  } while (
+    Math.round(Math.abs(bytes) * r) / r >= thresh &&
+    u < units.length - 1
+  );
+  return bytes.toFixed(1) + " " + units[u];
+};
+
+export function getExtension(filename: string, defaultExt: string) {
+  return /(?:\.([^.]+))?$/.exec(filename)[1] || defaultExt;
+}

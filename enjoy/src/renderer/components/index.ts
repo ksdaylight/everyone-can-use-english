@@ -1,5 +1,8 @@
 export * from "./audios";
+export * from "./chats";
 export * from "./conversations";
+export * from "./courses";
+export * from "./llm-chats";
 export * from "./meanings";
 export * from "./messages";
 export * from "./medias";
@@ -10,6 +13,7 @@ export * from "./preferences";
 export * from "./pronunciation-assessments";
 export * from "./recordings";
 export * from "./stories";
+export * from "./transcriptions";
 export * from "./users";
 export * from "./videos";
 export * from "./widgets";

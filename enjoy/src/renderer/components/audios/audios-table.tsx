@@ -17,7 +17,7 @@ import {
   EditIcon,
   TrashIcon,
   CheckCircleIcon,
-  AudioWaveformIcon,
+  CircleAlertIcon,
 } from "lucide-react";
 import dayjs from "@renderer/lib/dayjs";
 import { secondsToTimestamp } from "@renderer/lib/utils";
@@ -27,15 +27,15 @@ export const AudiosTable = (props: {
   audios: Partial<AudioType>[];
   onEdit: (audio: Partial<AudioType>) => void;
   onDelete: (audio: Partial<AudioType>) => void;
-  onTranscribe: (audio: Partial<AudioType>) => void;
 }) => {
-  const { audios, onEdit, onDelete, onTranscribe } = props;
+  const { audios, onEdit, onDelete } = props;
 
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead className="capitalize">{t("models.audio.name")}</TableHead>
+          <TableHead className="capitalize">{t("language")}</TableHead>
           <TableHead className="capitalize">
             {t("models.audio.duration")}
           </TableHead>
@@ -62,8 +62,17 @@ export const AudiosTable = (props: {
                 <Tooltip>
                   <TooltipTrigger>
                     <Link to={`/audios/${audio.id}`}>
-                      <div className="cursor-pointer truncate max-w-[12rem]">
-                        {audio.name}
+                      <div className="flex items-center space-x-2">
+                        {!audio.src && (
+                          <CircleAlertIcon
+                            data-tooltip-content={t("cannotFindSourceFile")}
+                            data-tooltip-id="global-tooltip"
+                            className="text-destructive w-4 h-4"
+                          />
+                        )}
+                        <div className="cursor-pointer truncate max-w-[12rem]">
+                          {audio.name}
+                        </div>
                       </div>
                     </Link>
                   </TooltipTrigger>
@@ -75,6 +84,7 @@ export const AudiosTable = (props: {
                 </Tooltip>
               </TooltipProvider>
             </TableCell>
+            <TableCell>{audio.language ? audio.language : "-"}</TableCell>
             <TableCell>
               {audio.duration ? secondsToTimestamp(audio.duration) : "-"}
             </TableCell>
@@ -86,23 +96,14 @@ export const AudiosTable = (props: {
               {dayjs(audio.createdAt).format("YYYY-MM-DD HH:mm")}
             </TableCell>
             <TableCell>
-              {audio.transcribing ? (
-                <PingPoint colorClassName="bg-yellow-500" />
-              ) : audio.transcribed ? (
+              {audio.transcribed ? (
                 <CheckCircleIcon className="text-green-500 w-4 h-4" />
               ) : (
-                <PingPoint colorClassName="bg-gray-500" />
+                <PingPoint colorClassName="bg-gray-500" className="w-2 h-2" />
               )}
             </TableCell>
             <TableCell>
               <div className="flex items-center">
-                <Button
-                  title={t("transcribe")}
-                  variant="ghost"
-                  onClick={() => onTranscribe(Object.assign({}, audio))}
-                >
-                  <AudioWaveformIcon className="h-4 w-4" />
-                </Button>
                 <Button
                   title={t("edit")}
                   variant="ghost"

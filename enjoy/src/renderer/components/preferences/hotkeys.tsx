@@ -1,7 +1,5 @@
 import { t } from "i18next";
-import {
-  Separator,
-} from "@renderer/components/ui";
+import { Separator } from "@renderer/components/ui";
 import { HotKeysSettingsProviderContext, Hotkey } from "@renderer/context";
 import { HotkeysSettings } from "@renderer/components";
 import { useContext, useState } from "react";
@@ -114,6 +112,25 @@ export const Hotkeys = () => {
         <Separator />
 
         <div className="flex items-center justify-between py-4">
+          <div className="flex items-center space-x-2">
+            {t("pronunciationAssessment")}
+          </div>
+          <kbd
+            onClick={() =>
+              handleItemSelected({
+                name: t("pronunciationAssessment"),
+                keyName: "PronunciationAssessment",
+              })
+            }
+            className="bg-muted px-2 py-1 rounded-md text-sm text-muted-foreground cursor-pointer capitalize"
+          >
+            {currentHotkeys.PronunciationAssessment}
+          </kbd>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between py-4">
           <div className="flex items-center space-x-2 capitalize">
             {t("playPreviousSegment")}
           </div>
@@ -146,6 +163,44 @@ export const Hotkeys = () => {
             className="bg-muted px-2 py-1 rounded-md text-sm text-muted-foreground cursor-pointer capitalize"
           >
             {currentHotkeys.PlayNextSegment}
+          </kbd>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between py-4">
+          <div className="flex items-center space-x-2 capitalize">
+            {t("increasePlaybackRate")}
+          </div>
+          <kbd
+            onClick={() =>
+              handleItemSelected({
+                name: t("increasePlaybackRate"),
+                keyName: "IncreasePlaybackRate",
+              })
+            }
+            className="bg-muted px-2 py-1 rounded-md text-sm text-muted-foreground cursor-pointer"
+          >
+            {currentHotkeys.IncreasePlaybackRate}
+          </kbd>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between py-4">
+          <div className="flex items-center space-x-2 capitalize">
+            {t("decreasePlaybackRate")}
+          </div>
+          <kbd
+            onClick={() =>
+              handleItemSelected({
+                name: t("decreasePlaybackRate"),
+                keyName: "DecreasePlaybackRate",
+              })
+            }
+            className="bg-muted px-2 py-1 rounded-md text-sm text-muted-foreground cursor-pointer"
+          >
+            {currentHotkeys.DecreasePlaybackRate}
           </kbd>
         </div>
 

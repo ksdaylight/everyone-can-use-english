@@ -6,11 +6,13 @@ import {
   Sheet,
   SheetTrigger,
   SheetContent,
+  SheetHeader,
+  SheetTitle,
 } from "@renderer/components/ui";
 import { useContext, useEffect, useRef, useState } from "react";
 import { AppSettingsProviderContext } from "@renderer/context";
 import { t } from "i18next";
-import intlTelInput from "intl-tel-input";
+import intlTelInput from "intl-tel-input/intlTelInputWithUtils";
 import "intl-tel-input/build/css/intlTelInput.css";
 
 export const BanduLoginButton = () => {
@@ -33,7 +35,14 @@ export const BanduLoginButton = () => {
           />
         </Button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="h-screen">
+      <SheetContent
+        side="bottom"
+        className="h-screen"
+        aria-describedby={undefined}
+      >
+        <SheetHeader>
+          <SheetTitle className="sr-only">学升登录</SheetTitle>
+        </SheetHeader>
         <div className="w-full h-full flex">
           <div className="m-auto">{open && <BanduLoginForm />}</div>
         </div>
@@ -67,8 +76,6 @@ export const BanduLoginForm = () => {
 
     intlTelInput(ref.current, {
       initialCountry: "cn",
-      utilsScript:
-        "https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/js/utils.js",
     });
     setIti(intlTelInput(ref.current));
 

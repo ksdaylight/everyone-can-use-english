@@ -1,5 +1,9 @@
 export * from "./audio";
 export * from "./cache-object";
+export * from "./chat";
+export * from "./chat-agent";
+export * from "./chat-member";
+export * from "./chat-message";
 export * from "./conversation";
 export * from "./message";
 export * from "./note";
@@ -7,5 +11,6 @@ export * from "./pronunciation-assessment";
 export * from "./recording";
 export * from "./segment";
 export * from "./speech";
+export * from "./user-setting";
 export * from "./transcription";
 export * from "./video";

@@ -14,7 +14,13 @@ import {
   DataType,
   Unique,
 } from "sequelize-typescript";
-import { Audio, Recording, Speech, Transcription } from "@main/db/models";
+import {
+  Audio,
+  Recording,
+  Speech,
+  Transcription,
+  UserSetting,
+} from "@main/db/models";
 import settings from "@main/settings";
 import { AudioFormats, VideoFormats, WEB_API_URL } from "@/constants";
 import { hashFile } from "@main/utils";
@@ -45,6 +51,9 @@ export class Video extends Model<Video> {
   @Default(DataType.UUIDV4)
   @Column({ primaryKey: true, type: DataType.UUID })
   id: string;
+
+  @Column(DataType.STRING)
+  language: string;
 
   @Column(DataType.STRING)
   source: string;
@@ -118,11 +127,15 @@ export class Video extends Model<Video> {
 
   @Column(DataType.VIRTUAL)
   get src(): string {
-    return `enjoy://${path.posix.join(
-      "library",
-      "videos",
-      this.getDataValue("md5") + this.extname
-    )}`;
+    if (this.filePath) {
+      return `enjoy://${path.posix.join(
+        "library",
+        "videos",
+        this.getDataValue("md5") + this.extname
+      )}`;
+    } else {
+      return null;
+    }
   }
 
   @Column(DataType.VIRTUAL)
@@ -149,11 +162,17 @@ export class Video extends Model<Video> {
   }
 
   get filePath(): string {
-    return path.join(
+    const file = path.join(
       settings.userDataPath(),
       "videos",
       this.getDataValue("md5") + this.extname
     );
+
+    if (fs.existsSync(file)) {
+      return file;
+    } else {
+      return null;
+    }
   }
 
   // generate cover and upload
@@ -200,8 +219,8 @@ export class Video extends Model<Video> {
     if (this.isSynced) return;
 
     const webApi = new Client({
-      baseUrl: process.env.WEB_API_URL || WEB_API_URL,
-      accessToken: settings.getSync("user.accessToken") as string,
+      baseUrl: settings.apiUrl(),
+      accessToken: (await UserSetting.accessToken()) as string,
       logger,
     });
 
@@ -266,8 +285,10 @@ export class Video extends Model<Video> {
   }
 
   @AfterDestroy
-  static cleanupFile(video: Video) {
-    fs.remove(video.filePath);
+  static async cleanupFile(video: Video) {
+    if (video.filePath) {
+      fs.remove(video.filePath);
+    }
     Recording.destroy({
       where: {
         targetId: video.id,
@@ -276,8 +297,8 @@ export class Video extends Model<Video> {
     });
 
     const webApi = new Client({
-      baseUrl: process.env.WEB_API_URL || WEB_API_URL,
-      accessToken: settings.getSync("user.accessToken") as string,
+      baseUrl: settings.apiUrl(),
+      accessToken: (await UserSetting.accessToken()) as string,
       logger: log.scope("video/cleanupFile"),
     });
 
@@ -324,7 +345,7 @@ export class Video extends Model<Video> {
       },
     });
     if (existing) {
-      throw new Error(t("videoAlreadyAddedToLibrary", { file: filePath }));
+      return existing;
     }
 
     // Generate ID

@@ -3,20 +3,32 @@ import {
   AISettingsProviderContext,
 } from "@renderer/context";
 import OpenAI from "openai";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { t } from "i18next";
 import { AI_WORKER_ENDPOINT } from "@/constants";
 import * as sdk from "microsoft-cognitiveservices-speech-sdk";
 import axios from "axios";
-import { AlignmentResult } from "echogarden/dist/api/API.d.js";
 import { useAiCommand } from "./use-ai-command";
+import { toast } from "@renderer/components/ui";
+import {
+  Timeline,
+  TimelineEntry,
+  type TimelineEntryType,
+} from "echogarden/dist/utilities/Timeline";
+import take from "lodash/take";
+import sortedUniqBy from "lodash/sortedUniqBy";
+import { parseText } from "media-captions";
+import { SttEngineOptionEnum } from "@/types/enums";
+
+// test a text string has any punctuations or not
+// some transcribed text may not have any punctuations
+const punctuationsPattern = /\w[.,!?](\s|$)/g;
 
 export const useTranscribe = () => {
-  const { EnjoyApp, user, webApi, learningLanguage } = useContext(
-    AppSettingsProviderContext
-  );
-  const { whisperConfig, openai } = useContext(AISettingsProviderContext);
+  const { EnjoyApp, user, webApi } = useContext(AppSettingsProviderContext);
+  const { openai } = useContext(AISettingsProviderContext);
   const { punctuateText } = useAiCommand();
+  const [output, setOutput] = useState<string>("");
 
   const transcode = async (src: string | Blob): Promise<string> => {
     if (src instanceof Blob) {
@@ -31,90 +43,222 @@ export const useTranscribe = () => {
   };
 
   const transcribe = async (
-    mediaSrc: string,
+    mediaSrc: string | Blob,
     params?: {
       targetId?: string;
       targetType?: string;
       originalText?: string;
-      language?: string;
+      language: string;
+      service: SttEngineOptionEnum | "upload";
+      isolate?: boolean;
+      align?: boolean;
     }
   ): Promise<{
     engine: string;
     model: string;
-    alignmentResult: AlignmentResult;
+    transcript: string;
+    timeline: TimelineEntry[];
     originalText?: string;
+    tokenId?: number;
+    url: string;
   }> => {
     const url = await transcode(mediaSrc);
     const {
       targetId,
       targetType,
       originalText,
-      language = learningLanguage.split("-")[0],
+      language,
+      service,
+      isolate = false,
+      align = true,
     } = params || {};
     const blob = await (await fetch(url)).blob();
 
-    let result;
-    if (originalText) {
-      result = {
-        engine: "original",
-        model: "original",
-      };
-    } else if (whisperConfig.service === "local") {
-      result = await transcribeByLocal(url);
-    } else if (whisperConfig.service === "cloudflare") {
+    let result: any;
+    let timeline: Timeline = [];
+    if (service === "upload" && originalText) {
+      const caption = await parseText(originalText, { type: "srt" });
+      if (caption.cues.length > 0) {
+        timeline = caption.cues.map((cue) => {
+          return {
+            type: "sentence",
+            text: cue.text,
+            startTime: cue.startTime,
+            endTime: cue.endTime,
+            timeline: [],
+          };
+        });
+        result = {
+          engine: "upload",
+          model: "-",
+          text: timeline.map((entry) => entry.text).join(" "),
+          timeline,
+        };
+      } else {
+        result = {
+          engine: "upload",
+          model: "-",
+          text: originalText,
+        };
+      }
+    } else if (service === SttEngineOptionEnum.LOCAL) {
+      result = await transcribeByLocal(url, language);
+    } else if (service === SttEngineOptionEnum.ENJOY_CLOUDFLARE) {
       result = await transcribeByCloudflareAi(blob);
-    } else if (whisperConfig.service === "openai") {
-      result = await transcribeByOpenAi(blob);
-    } else if (whisperConfig.service === "azure") {
-      result = await transcribeByAzureAi(blob, { targetId, targetType });
+    } else if (service === SttEngineOptionEnum.OPENAI) {
+      result = await transcribeByOpenAi(
+        new File([blob], "audio.mp3", { type: "audio/mp3" })
+      );
     } else {
-      throw new Error(t("whisperServiceNotSupported"));
-    }
-
-    let transcript = originalText || result.text;
-    // if the transcript does not contain any punctuation, use AI command to add punctuation
-    if (!transcript.match(/\w[.,!?](\s|$)/)) {
-      try {
-        transcript = await punctuateText(transcript);
-      } catch (err) {
-        console.warn(err.message);
-      }
-    }
-
-    const alignmentResult = await EnjoyApp.echogarden.align(
-      new Uint8Array(await blob.arrayBuffer()),
-      transcript,
-      {
+      // Azure AI is the default service
+      result = await transcribeByAzureAi(
+        new File([blob], "audio.wav", { type: "audio/wav" }),
         language,
+        {
+          targetId,
+          targetType,
+        }
+      );
+    }
+
+    let transcript = result.text;
+    if (!align) {
+      return {
+        ...result,
+        transcript,
+        url,
+      };
+    }
+
+    /*
+     * if timeline is available and the transcript contains punctuations
+     * use `alignSegments` to align each sentence with the timeline
+     * otherwise, use `align` to align the whole transcript
+     * if the transcript does not contain any punctuation, use AI command to add punctuation
+     */
+    if (result.timeline?.length && transcript.match(punctuationsPattern)) {
+      timeline = [...result.timeline];
+      setOutput("Aligning the transcript...");
+      const wordTimeline = await EnjoyApp.echogarden.alignSegments(
+        new Uint8Array(await blob.arrayBuffer()),
+        timeline,
+        {
+          language,
+          isolate,
+        }
+      );
+      timeline = await EnjoyApp.echogarden.wordToSentenceTimeline(
+        wordTimeline,
+        transcript,
+        language.split("-")[0]
+      );
+    } else {
+      // Remove all content inside `()`, `[]`, `{}` and trim the text
+      // remove all markdown formatting
+      transcript = transcript
+        .replace(/\(.*?\)/g, "")
+        .replace(/\[.*?\]/g, "")
+        .replace(/\{.*?\}/g, "")
+        .replace(/[*_`]/g, "")
+        .trim();
+
+      // if the transcript does not contain any punctuation, use AI command to add punctuation
+      if (!transcript.match(punctuationsPattern)) {
+        try {
+          transcript = await punctuateText(transcript);
+        } catch (err) {
+          toast.error(err.message);
+          console.warn(err.message);
+        }
       }
-    );
+
+      setOutput("Aligning the transcript...");
+      const alignmentResult = await EnjoyApp.echogarden.align(
+        new Uint8Array(await blob.arrayBuffer()),
+        transcript,
+        {
+          language,
+          isolate,
+        }
+      );
+
+      alignmentResult.timeline.forEach((t: TimelineEntry) => {
+        if (t.type === "sentence") {
+          timeline.push(t);
+        } else {
+          t.timeline.forEach((st) => {
+            timeline.push(st);
+          });
+        }
+      });
+    }
 
     return {
       ...result,
       originalText,
-      alignmentResult,
+      transcript,
+      timeline,
+      url,
     };
   };
 
-  const transcribeByLocal = async (url: string) => {
+  const transcribeByLocal = async (
+    url: string,
+    language?: string
+  ): Promise<{
+    engine: string;
+    model: string;
+    text: string;
+    timeline: TimelineEntry[];
+  }> => {
     const res = await EnjoyApp.whisper.transcribe(
       {
         file: url,
       },
       {
+        language,
         force: true,
         extra: ["--prompt", `"Hello! Welcome to listen to this audio."`],
       }
     );
 
+    if (!res) {
+      throw new Error(t("whisperTranscribeFailed", { error: "" }));
+    }
+
+    const timeline: TimelineEntry[] = res.transcription
+      .map((segment) => {
+        // ignore the word if it is empty or in the format of `[xxx]` or `(xxx)`
+        if (
+          !segment.text.trim() ||
+          segment.text.trim().match(/^[\[\(].+[\]\)]$/)
+        ) {
+          return null;
+        }
+
+        return {
+          type: "segment" as TimelineEntryType,
+          text: segment.text.trim(),
+          startTime: segment.offsets.from / 1000.0,
+          endTime: segment.offsets.to / 1000.0,
+        };
+      })
+      .filter((s) => Boolean(s?.text));
+
+    const transcript = timeline
+      .map((segment) => segment.text)
+      .join(" ")
+      .trim();
+
     return {
       engine: "whisper",
       model: res.model.type,
-      text: res.transcription.map((segment) => segment.text).join(" "),
+      text: transcript,
+      timeline,
     };
   };
 
-  const transcribeByOpenAi = async (blob: Blob) => {
+  const transcribeByOpenAi = async (file: File) => {
     if (!openai?.key) {
       throw new Error(t("openaiKeyRequired"));
     }
@@ -123,22 +267,51 @@ export const useTranscribe = () => {
       apiKey: openai.key,
       baseURL: openai.baseUrl,
       dangerouslyAllowBrowser: true,
+      maxRetries: 0,
     });
 
-    const res: { text: string } = (await client.audio.transcriptions.create({
-      file: new File([blob], "audio.wav"),
+    const res: {
+      text: string;
+      words?: { word: string; start: number; end: number }[];
+      segments?: { text: string; start: number; end: number }[];
+    } = (await client.audio.transcriptions.create({
+      file,
       model: "whisper-1",
-      response_format: "json",
+      response_format: "verbose_json",
+      timestamp_granularities: ["segment"],
     })) as any;
+
+    let timeline: TimelineEntry[] = [];
+    if (res.segments) {
+      res.segments.forEach((segment) => {
+        const segmentTimeline = {
+          type: "segment" as TimelineEntryType,
+          text: segment.text,
+          startTime: segment.start,
+          endTime: segment.end,
+          timeline: [] as Timeline,
+        };
+
+        timeline.push(segmentTimeline);
+      });
+    }
 
     return {
       engine: "openai",
       model: "whisper-1",
       text: res.text,
+      timeline,
     };
   };
 
-  const transcribeByCloudflareAi = async (blob: Blob) => {
+  const transcribeByCloudflareAi = async (
+    blob: Blob
+  ): Promise<{
+    engine: string;
+    model: string;
+    text: string;
+    timeline?: TimelineEntry[];
+  }> => {
     const res: CfWhipserOutputType = (
       await axios.postForm(`${AI_WORKER_ENDPOINT}/audio/transcriptions`, blob, {
         headers: {
@@ -148,15 +321,28 @@ export const useTranscribe = () => {
       })
     ).data;
 
+    const caption = await parseText(res.vtt, { type: "vtt" });
+    const timeline: Timeline = caption.cues.map((cue) => {
+      return {
+        type: "segment",
+        text: cue.text,
+        startTime: cue.startTime,
+        endTime: cue.endTime,
+        timeline: [],
+      };
+    });
+
     return {
       engine: "cloudflare",
       model: "@cf/openai/whisper",
       text: res.text,
+      timeline,
     };
   };
 
   const transcribeByAzureAi = async (
-    blob: Blob,
+    file: File,
+    language: string,
     params?: {
       targetId?: string;
       targetType?: string;
@@ -165,14 +351,17 @@ export const useTranscribe = () => {
     engine: string;
     model: string;
     text: string;
+    tokenId: number;
+    timeline?: TimelineEntry[];
   }> => {
-    const { token, region } = await webApi.generateSpeechToken(params);
+    const { id, token, region } = await webApi.generateSpeechToken({
+      ...params,
+      purpose: "transcribe",
+    });
     const config = sdk.SpeechConfig.fromAuthorizationToken(token, region);
-    const audioConfig = sdk.AudioConfig.fromWavFileInput(
-      new File([blob], "audio.wav")
-    );
+    const audioConfig = sdk.AudioConfig.fromWavFileInput(file);
     // setting the recognition language to learning language, such as 'en-US'.
-    config.speechRecognitionLanguage = learningLanguage;
+    config.speechRecognitionLanguage = language;
     config.requestWordLevelTimestamps();
     config.outputFormat = sdk.OutputFormat.Detailed;
 
@@ -181,9 +370,15 @@ export const useTranscribe = () => {
 
     let results: SpeechRecognitionResultType[] = [];
 
-    return new Promise((resolve, reject) => {
+    const res: {
+      engine: string;
+      model: string;
+      text: string;
+      tokenId: number;
+      timeline?: TimelineEntry[];
+    } = await new Promise((resolve, reject) => {
       reco.recognizing = (_s, e) => {
-        console.log(e.result.text);
+        setOutput(e.result.text);
       };
 
       reco.recognized = (_s, e) => {
@@ -200,24 +395,64 @@ export const useTranscribe = () => {
         }
 
         reco.stopContinuousRecognitionAsync();
+        console.log("CANCELED: Reason=" + e.reason);
       };
 
-      reco.sessionStopped = (_s, _e) => {
+      reco.sessionStopped = async (_s, e) => {
+        console.log(
+          "Session stopped. Stop continuous recognition.",
+          e.sessionId,
+          results
+        );
         reco.stopContinuousRecognitionAsync();
 
-        resolve({
-          engine: "azure",
-          model: "whisper",
-          text: results.map((result) => result.DisplayText).join(" "),
-        });
+        try {
+          const timeline: Timeline = [];
+          results.forEach((result) => {
+            if (!result.DisplayText) return;
+
+            const best = take(sortedUniqBy(result.NBest, "Confidence"), 1)[0];
+            if (!best.Words) return;
+            if (!best.Confidence || best.Confidence < 0.5) return;
+
+            const firstWord = best.Words[0];
+            const lastWord = best.Words[best.Words.length - 1];
+
+            timeline.push({
+              type: "sentence",
+              text: best.Display,
+              startTime: firstWord.Offset / 10000000.0,
+              endTime: (lastWord.Offset + lastWord.Duration) / 10000000.0,
+              timeline: [],
+            });
+          });
+
+          const transcript = timeline
+            .map((result) => result.text)
+            .join(" ")
+            .trim();
+
+          resolve({
+            engine: "azure",
+            model: "whisper",
+            text: transcript,
+            timeline,
+            tokenId: id,
+          });
+        } catch (err) {
+          reject(err);
+        }
       };
 
       reco.startContinuousRecognitionAsync();
     });
+
+    return res;
   };
 
   return {
     transcode,
     transcribe,
+    output,
   };
 };

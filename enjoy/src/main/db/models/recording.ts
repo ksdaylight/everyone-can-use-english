@@ -15,7 +15,12 @@ import {
   HasOne,
 } from "sequelize-typescript";
 import mainWindow from "@main/window";
-import { Audio, PronunciationAssessment, Video } from "@main/db/models";
+import {
+  Audio,
+  PronunciationAssessment,
+  UserSetting,
+  Video,
+} from "@main/db/models";
 import fs from "fs-extra";
 import path from "path";
 import settings from "@main/settings";
@@ -23,10 +28,10 @@ import { hashFile } from "@main/utils";
 import log from "@main/logger";
 import storage from "@main/storage";
 import { Client } from "@/api";
-import { WEB_API_URL } from "@/constants";
-import { AzureSpeechSdk } from "@main/azure-speech-sdk";
 import echogarden from "@main/echogarden";
-import camelcaseKeys from "camelcase-keys";
+import { t } from "i18next";
+import { Attributes, Transaction } from "sequelize";
+import { v5 as uuidv5 } from "uuid";
 
 const logger = log.scope("db/models/recording");
 
@@ -42,6 +47,9 @@ export class Recording extends Model<Recording> {
   @Column({ primaryKey: true, type: DataType.UUID })
   id: string;
 
+  @Column(DataType.STRING)
+  language: string;
+
   @BelongsTo(() => Audio, { foreignKey: "targetId", constraints: false })
   audio: Audio;
 
@@ -51,11 +59,13 @@ export class Recording extends Model<Recording> {
   @Column(DataType.VIRTUAL)
   target: Audio | Video;
 
+  @IsUUID("all")
+  @Default("00000000-0000-0000-0000-000000000000")
   @Column(DataType.UUID)
   targetId: string;
 
   @Column(DataType.STRING)
-  targetType: "Audio" | "Video";
+  targetType: "Audio" | "Video" | "ChatMessage" | "None";
 
   @HasOne(() => PronunciationAssessment, {
     foreignKey: "targetId",
@@ -135,9 +145,11 @@ export class Recording extends Model<Recording> {
   }
 
   async sync() {
+    if (this.isSynced) return;
+
     const webApi = new Client({
-      baseUrl: process.env.WEB_API_URL || WEB_API_URL,
-      accessToken: settings.getSync("user.accessToken") as string,
+      baseUrl: settings.apiUrl(),
+      accessToken: (await UserSetting.accessToken()) as string,
       logger,
     });
 
@@ -146,65 +158,10 @@ export class Recording extends Model<Recording> {
     });
   }
 
-  async assess(language?: string) {
-    const assessment = await PronunciationAssessment.findOne({
-      where: { targetId: this.id, targetType: "Recording" },
-    });
-
-    if (assessment) {
-      return assessment;
-    }
-
-    await this.sync();
-    const webApi = new Client({
-      baseUrl: process.env.WEB_API_URL || WEB_API_URL,
-      accessToken: settings.getSync("user.accessToken") as string,
-      logger,
-    });
-
-    const { token, region } = await webApi.generateSpeechToken({
-      targetId: this.id,
-      targetType: "Recording",
-    });
-    const sdk = new AzureSpeechSdk(token, region);
-
-    const result = await sdk.pronunciationAssessment({
-      filePath: this.filePath,
-      reference: this.referenceText,
-      language,
-    });
-
-    const resultJson = camelcaseKeys(
-      JSON.parse(JSON.stringify(result.detailResult)),
-      {
-        deep: true,
-      }
-    );
-    resultJson.duration = this.duration;
-
-    const _pronunciationAssessment = await PronunciationAssessment.create(
-      {
-        targetId: this.id,
-        targetType: "Recording",
-        pronunciationScore: result.pronunciationScore,
-        accuracyScore: result.accuracyScore,
-        completenessScore: result.completenessScore,
-        fluencyScore: result.fluencyScore,
-        prosodyScore: result.prosodyScore,
-        grammarScore: result.contentAssessmentResult?.grammarScore,
-        vocabularyScore: result.contentAssessmentResult?.vocabularyScore,
-        topicScore: result.contentAssessmentResult?.topicScore,
-        result: resultJson,
-      },
-      {
-        include: Recording,
-      }
-    );
-    return _pronunciationAssessment.toJSON();
-  }
-
   @AfterFind
   static async findTarget(findResult: Recording | Recording[]) {
+    if (!findResult) return;
+
     if (!Array.isArray(findResult)) findResult = [findResult];
 
     for (const instance of findResult) {
@@ -230,14 +187,21 @@ export class Recording extends Model<Recording> {
 
   @AfterCreate
   static increaseResourceCache(recording: Recording) {
-    if (recording.targetType !== "Audio") return;
-
-    Audio.findByPk(recording.targetId).then((audio) => {
-      audio.increment("recordingsCount");
-      audio.increment("recordingsDuration", {
-        by: recording.duration,
+    if (recording.targetType === "Audio") {
+      Audio.findByPk(recording.targetId).then((audio) => {
+        audio.increment("recordingsCount");
+        audio.increment("recordingsDuration", {
+          by: recording.duration,
+        });
       });
-    });
+    } else if (recording.targetType === "Video") {
+      Video.findByPk(recording.targetId).then((video) => {
+        video.increment("recordingsCount");
+        video.increment("recordingsDuration", {
+          by: recording.duration,
+        });
+      });
+    }
   }
 
   @AfterCreate
@@ -275,16 +239,14 @@ export class Recording extends Model<Recording> {
   }
 
   @AfterDestroy
-  static cleanupFile(recording: Recording) {
+  static async cleanupFile(recording: Recording) {
     fs.remove(recording.filePath);
     const webApi = new Client({
-      baseUrl: process.env.WEB_API_URL || WEB_API_URL,
-      accessToken: settings.getSync("user.accessToken") as string,
+      baseUrl: settings.apiUrl(),
+      accessToken: (await UserSetting.accessToken()) as string,
       logger: log.scope("recording/cleanupFile"),
     });
-    webApi.deleteRecording(recording.id).catch((err) => {
-      logger.error("deleteRecording failed:", err.message);
-    });
+    webApi.deleteRecording(recording.id);
   }
 
   static async createFromBlob(
@@ -292,63 +254,66 @@ export class Recording extends Model<Recording> {
       type: string;
       arrayBuffer: ArrayBuffer;
     },
-    params: {
-      targetId: string;
-      targetType: "Audio" | "Video";
-      duration: number;
-      referenceId?: number;
-      referenceText?: string;
-    }
+    params: Partial<Attributes<Recording>>,
+    transaction?: Transaction
   ) {
-    const { targetId, targetType, referenceId, referenceText } = params;
-    let { duration } = params;
+    const { targetId, targetType, referenceId, referenceText, language } =
+      params;
 
     if (blob.arrayBuffer.byteLength === 0) {
-      throw new Error("Empty recording");
+      throw new Error(t("models.recording.cannotDetectAnySound"));
     }
 
     let rawAudio = await echogarden.ensureRawAudio(
       Buffer.from(blob.arrayBuffer)
     );
 
-    // denoise audio
-    // const { denoisedAudio } = await echogarden.denoise(
-    //   rawAudio,
-    //   {}
-    // );
-
     // trim audio
     let trimmedSamples = echogarden.trimAudioStart(
       rawAudio.audioChannels[0],
       0,
-      -30
+      -50
     );
-    trimmedSamples = echogarden.trimAudioEnd(trimmedSamples, 0, -30);
+    trimmedSamples = echogarden.trimAudioEnd(trimmedSamples, 0, -100);
     rawAudio.audioChannels[0] = trimmedSamples;
 
-    duration = Math.round(echogarden.getRawAudioDuration(rawAudio) * 1000);
+    const duration = Math.round(
+      echogarden.getRawAudioDuration(rawAudio) * 1000
+    );
 
     if (duration === 0) {
-      throw new Error("Failed to get duration of the recording");
+      throw new Error(t("models.recording.cannotDetectAnySound"));
     }
 
     // save recording to file
-    const file = path.join(
-      settings.userDataPath(),
-      "recordings",
-      `${Date.now()}.wav`
-    );
+    const file = path.join(settings.cachePath(), `${Date.now()}.wav`);
     await fs.outputFile(file, echogarden.encodeRawAudioToWave(rawAudio));
 
     // hash file
     const md5 = await hashFile(file, { algo: "md5" });
 
+    const existed = await Recording.findOne({ where: { md5 } });
+    if (existed) {
+      fs.remove(file);
+      return existed;
+    }
+
     // rename file
     const filename = `${md5}.wav`;
-    fs.renameSync(file, path.join(path.dirname(file), filename));
+    fs.moveSync(
+      file,
+      path.join(settings.userDataPath(), "recordings", filename),
+      {
+        overwrite: true,
+      }
+    );
+
+    const userId = settings.getSync("user.id");
+    const id = uuidv5(`${userId}/${md5}`, uuidv5.URL);
 
     return this.create(
       {
+        id,
         targetId,
         targetType,
         filename,
@@ -356,9 +321,10 @@ export class Recording extends Model<Recording> {
         md5,
         referenceId,
         referenceText,
+        language,
       },
       {
-        include: [Audio],
+        transaction,
       }
     );
   }

@@ -14,8 +14,17 @@ export class Client {
     accessToken?: string;
     logger?: any;
     locale?: "en" | "zh-CN";
+    onError?: (err: any) => void;
+    onSuccess?: (res: any) => void;
   }) {
-    const { baseUrl, accessToken, logger, locale = "en" } = options;
+    const {
+      baseUrl,
+      accessToken,
+      logger,
+      locale = "en",
+      onError,
+      onSuccess,
+    } = options;
     this.baseUrl = baseUrl;
     this.logger = logger || console;
 
@@ -40,6 +49,10 @@ export class Client {
     });
     this.api.interceptors.response.use(
       (response) => {
+        if (onSuccess) {
+          onSuccess(response);
+        }
+
         this.logger.debug(
           response.status,
           response.config.method.toUpperCase(),
@@ -48,25 +61,32 @@ export class Client {
         return camelcaseKeys(response.data, { deep: true });
       },
       (err) => {
+        if (onError) {
+          onError(err);
+        }
+
         if (err.response) {
           this.logger.error(
             err.response.status,
             err.response.config.method.toUpperCase(),
-            err.response.config.baseURL + err.response.config.url
+            err.response.config.baseURL + err.response.config.url,
+            err.response.data
           );
-          this.logger.error(err.response.data);
-          return Promise.reject(new Error(err.response.data));
+
+          if (err.response.data) {
+            err.message = err.response.data;
+          }
+          return Promise.reject(err);
         }
 
-        if (err.request) {
-          this.logger.error(err.request);
-        } else {
-          this.logger.error(err.message);
-        }
-
+        this.logger.error(err.message);
         return Promise.reject(err);
       }
     );
+  }
+
+  up() {
+    return this.api.get("/up");
   }
 
   auth(params: {
@@ -224,6 +244,14 @@ export class Client {
     return this.api.delete(`/api/posts/${id}`);
   }
 
+  likePost(id: string): Promise<PostType> {
+    return this.api.post(`/api/posts/${id}/like`);
+  }
+
+  unlikePost(id: string): Promise<PostType> {
+    return this.api.delete(`/api/posts/${id}/unlike`);
+  }
+
   transcriptions(params?: {
     page?: number;
     items?: number;
@@ -238,6 +266,10 @@ export class Client {
     return this.api.get("/api/transcriptions", {
       params: decamelizeKeys(params),
     });
+  }
+
+  usages(): Promise<{ label: string; data: number[] }[]> {
+    return this.api.get("/api/mine/usages");
   }
 
   syncAudio(audio: Partial<AudioType>) {
@@ -260,7 +292,9 @@ export class Client {
     return this.api.post("/api/transcriptions", decamelizeKeys(transcription));
   }
 
-  syncSegment(segment: Partial<Omit<SegmentType, "audio" | "video">>) {
+  syncSegment(
+    segment: Partial<Omit<SegmentType, "audio" | "video" | "target">>
+  ) {
     return this.api.post("/api/segments", decamelizeKeys(segment));
   }
 
@@ -283,10 +317,24 @@ export class Client {
   }
 
   generateSpeechToken(params?: {
+    purpose?: string;
     targetType?: string;
     targetId?: string;
-  }): Promise<{ token: string; region: string }> {
+    input?: string;
+  }): Promise<{ id: number; token: string; region: string }> {
     return this.api.post("/api/speech/tokens", decamelizeKeys(params || {}));
+  }
+
+  consumeSpeechToken(id: number) {
+    return this.api.put(`/api/speech/tokens/${id}`, {
+      state: "consumed",
+    });
+  }
+
+  revokeSpeechToken(id: number) {
+    return this.api.put(`/api/speech/tokens/${id}`, {
+      state: "revoked",
+    });
   }
 
   syncPronunciationAssessment(
@@ -420,7 +468,7 @@ export class Client {
 
   createPayment(params: {
     amount: number;
-    reconciledCurrency: string;
+    reconciledCurrency?: string;
     processor: string;
     paymentType: string;
   }): Promise<PaymentType> {
@@ -443,7 +491,7 @@ export class Client {
     return this.api.get(`/api/payments/${id}`);
   }
 
-  mineSegments(params?: {
+  segments(params?: {
     page?: number;
     segmentIndex?: number;
     targetId?: string;
@@ -453,7 +501,111 @@ export class Client {
       segments: SegmentType[];
     } & PagyResponseType
   > {
-    return this.api.get("/api/mine/segments", {
+    return this.api.get("/api/segments", {
+      params: decamelizeKeys(params),
+    });
+  }
+
+  courses(params?: {
+    language?: string;
+    page?: number;
+    items?: number;
+    query?: string;
+  }): Promise<
+    {
+      courses: CourseType[];
+    } & PagyResponseType
+  > {
+    return this.api.get("/api/courses", { params: decamelizeKeys(params) });
+  }
+
+  course(id: string): Promise<CourseType> {
+    return this.api.get(`/api/courses/${id}`);
+  }
+
+  createEnrollment(courseId: string): Promise<EnrollmentType> {
+    return this.api.post(`/api/enrollments`, decamelizeKeys({ courseId }));
+  }
+
+  courseChapters(
+    courseId: string,
+    params?: {
+      page?: number;
+      items?: number;
+      query?: string;
+    }
+  ): Promise<
+    {
+      chapters: ChapterType[];
+    } & PagyResponseType
+  > {
+    return this.api.get(`/api/courses/${courseId}/chapters`, {
+      params: decamelizeKeys(params),
+    });
+  }
+
+  coursechapter(courseId: string, id: number | string): Promise<ChapterType> {
+    return this.api.get(`/api/courses/${courseId}/chapters/${id}`);
+  }
+
+  finishCourseChapter(courseId: string, id: number | string): Promise<void> {
+    return this.api.post(`/api/courses/${courseId}/chapters/${id}/finish`);
+  }
+
+  enrollments(params?: { page?: number; items?: number }): Promise<
+    {
+      enrollments: EnrollmentType[];
+    } & PagyResponseType
+  > {
+    return this.api.get("/api/enrollments", { params: decamelizeKeys(params) });
+  }
+
+  updateEnrollment(
+    id: string,
+    params: {
+      currentChapterId?: string;
+    }
+  ): Promise<EnrollmentType> {
+    return this.api.put(`/api/enrollments/${id}`, decamelizeKeys(params));
+  }
+
+  createLlmChat(params: {
+    agentId: string;
+    agentType: string;
+  }): Promise<LLmChatType> {
+    return this.api.post("/api/chats", decamelizeKeys(params));
+  }
+
+  llmChat(id: string): Promise<LLmChatType> {
+    return this.api.get(`/api/chats/${id}`);
+  }
+
+  createLlmMessage(
+    chatId: string,
+    params: {
+      query: string;
+      agentId?: string;
+      agentType?: string;
+    }
+  ): Promise<LlmMessageType> {
+    return this.api.post(
+      `/api/chats/${chatId}/messages`,
+      decamelizeKeys(params)
+    );
+  }
+
+  llmMessages(
+    chatId: string,
+    params: {
+      page?: number;
+      items?: number;
+    }
+  ): Promise<
+    {
+      messages: LlmMessageType[];
+    } & PagyResponseType
+  > {
+    return this.api.get(`/api/chats/${chatId}/messages`, {
       params: decamelizeKeys(params),
     });
   }

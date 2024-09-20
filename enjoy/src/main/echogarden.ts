@@ -1,7 +1,6 @@
 import { ipcMain } from "electron";
 import * as Echogarden from "echogarden/dist/api/API.js";
 import { AlignmentOptions } from "echogarden/dist/api/API";
-import { AudioSourceParam } from "echogarden/dist/audio/AudioUtilities";
 import {
   encodeRawAudioToWave,
   decodeWaveToRawAudio,
@@ -9,7 +8,13 @@ import {
   getRawAudioDuration,
   trimAudioStart,
   trimAudioEnd,
+  AudioSourceParam,
 } from "echogarden/dist/audio/AudioUtilities.js";
+import { wordTimelineToSegmentSentenceTimeline } from "echogarden/dist/utilities/Timeline.js";
+import {
+  type Timeline,
+  type TimelineEntry,
+} from "echogarden/dist/utilities/Timeline.d.js";
 import path from "path";
 import log from "@main/logger";
 import url from "url";
@@ -34,6 +39,7 @@ const __dirname = path
 const logger = log.scope("echogarden");
 class EchogardenWrapper {
   public align: typeof Echogarden.align;
+  public alignSegments: typeof Echogarden.alignSegments;
   public denoise: typeof Echogarden.denoise;
   public encodeRawAudioToWave: typeof encodeRawAudioToWave;
   public decodeWaveToRawAudio: typeof decodeWaveToRawAudio;
@@ -41,9 +47,11 @@ class EchogardenWrapper {
   public getRawAudioDuration: typeof getRawAudioDuration;
   public trimAudioStart: typeof trimAudioStart;
   public trimAudioEnd: typeof trimAudioEnd;
+  public wordTimelineToSegmentSentenceTimeline: typeof wordTimelineToSegmentSentenceTimeline;
 
   constructor() {
     this.align = Echogarden.align;
+    this.alignSegments = Echogarden.alignSegments;
     this.denoise = Echogarden.denoise;
     this.encodeRawAudioToWave = encodeRawAudioToWave;
     this.decodeWaveToRawAudio = decodeWaveToRawAudio;
@@ -51,6 +59,8 @@ class EchogardenWrapper {
     this.getRawAudioDuration = getRawAudioDuration;
     this.trimAudioStart = trimAudioStart;
     this.trimAudioEnd = trimAudioEnd;
+    this.wordTimelineToSegmentSentenceTimeline =
+      wordTimelineToSegmentSentenceTimeline;
   }
 
   async check() {
@@ -107,6 +117,56 @@ class EchogardenWrapper {
           logger.error(err);
           throw err;
         }
+      }
+    );
+
+    ipcMain.handle(
+      "echogarden-align-segments",
+      async (
+        _event,
+        input: AudioSourceParam,
+        timeline: Timeline,
+        options: AlignmentOptions
+      ) => {
+        logger.debug("echogarden-align-segments:", timeline, options);
+        try {
+          const rawAudio = await this.ensureRawAudio(input, 16000);
+          return await this.alignSegments(rawAudio, timeline, options);
+        } catch (err) {
+          logger.error(err);
+          throw err;
+        }
+      }
+    );
+
+    ipcMain.handle(
+      "echogarden-word-to-sentence-timeline",
+      async (
+        _event,
+        wordTimeline: Timeline,
+        transcript: string,
+        language: string
+      ) => {
+        logger.debug("echogarden-word-to-sentence-timeline:", transcript);
+
+        const { segmentTimeline } =
+          await this.wordTimelineToSegmentSentenceTimeline(
+            wordTimeline,
+            transcript,
+            language.split("-")[0]
+          );
+        const timeline: Timeline = [];
+        segmentTimeline.forEach((t: TimelineEntry) => {
+          if (t.type === "sentence") {
+            timeline.push(t);
+          } else {
+            t.timeline.forEach((st) => {
+              timeline.push(st);
+            });
+          }
+        });
+
+        return timeline;
       }
     );
 

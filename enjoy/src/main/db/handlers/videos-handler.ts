@@ -1,6 +1,6 @@
 import { ipcMain, IpcMainEvent } from "electron";
 import { Video, Transcription } from "@main/db/models";
-import { FindOptions, WhereOptions, Attributes } from "sequelize";
+import { FindOptions, WhereOptions, Attributes, Op } from "sequelize";
 import downloader from "@main/downloader";
 import log from "@main/logger";
 import { t } from "i18next";
@@ -11,10 +11,19 @@ const logger = log.scope("db/handlers/videos-handler");
 
 class VideosHandler {
   private async findAll(
-    event: IpcMainEvent,
-    options: FindOptions<Attributes<Video>>
+    _event: IpcMainEvent,
+    options: FindOptions<Attributes<Video>> & { query?: string }
   ) {
-    return Video.findAll({
+    const { query, where = {} } = options || {};
+    delete options.query;
+    delete options.where;
+
+    if (query) {
+      (where as any).name = {
+        [Op.like]: `%${query}%`,
+      };
+    }
+    const videos = await Video.findAll({
       order: [["updatedAt", "DESC"]],
       include: [
         {
@@ -24,47 +33,32 @@ class VideosHandler {
           required: false,
         },
       ],
+      where,
       ...options,
-    })
-      .then((videos) => {
-        if (!videos) {
-          return [];
-        }
-        return videos.map((video) => video.toJSON());
-      })
-      .catch((err) => {
-        event.sender.send("on-notification", {
-          type: "error",
-          message: err.message,
-        });
-      });
+      group: ["Video.id"],
+    });
+    if (!videos) {
+      return [];
+    }
+    return videos.map((video) => video.toJSON());
   }
 
   private async findOne(
-    event: IpcMainEvent,
+    _event: IpcMainEvent,
     where: WhereOptions<Attributes<Video>>
   ) {
-    return Video.findOne({
+    const video = await Video.findOne({
       where: {
         ...where,
       },
-    })
-      .then((video) => {
-        if (!video) return;
+    });
+    if (!video) return;
 
-        if (!video.isSynced) {
-          video.sync().catch(() => {});
-        }
+    if (!video.isSynced) {
+      video.sync().catch(() => {});
+    }
 
-        return video.toJSON();
-      })
-      .catch((err) => {
-        logger.error(err);
-        event.sender.send("on-notification", {
-          type: "error",
-          message: err.message,
-        });
-      });
+    return video.toJSON();
   }
 
   private async create(
@@ -90,10 +84,8 @@ class VideosHandler {
         if (!file) throw new Error("Failed to download file");
         source = uri;
       } catch (err) {
-        return event.sender.send("on-notification", {
-          type: "error",
-          message: t("models.video.failedToDownloadFile", { file: uri }),
-        });
+        logger.error(err);
+        throw new Error(t("models.video.failedToDownloadFile", { file: uri }));
       }
     }
 
@@ -105,72 +97,46 @@ class VideosHandler {
         return video.toJSON();
       })
       .catch((err) => {
-        return event.sender.send("on-notification", {
-          type: "error",
-          message: t("models.video.failedToAdd", { error: err.message }),
-        });
+        logger.error(err);
+        throw new Error(t("models.video.failedToAdd", { error: err.message }));
       });
   }
 
   private async update(
-    event: IpcMainEvent,
+    _event: IpcMainEvent,
     id: string,
     params: Attributes<Video>
   ) {
-    const { name, description, metadata } = params;
+    const { name, description, metadata, language, coverUrl, source } = params;
 
-    return Video.findOne({
-      where: { id },
-    })
-      .then((video) => {
-        if (!video) {
-          throw new Error(t("models.video.notFound"));
-        }
-        video.update({ name, description, metadata });
-      })
-      .catch((err) => {
-        event.sender.send("on-notification", {
-          type: "error",
-          message: err.message,
-        });
-      });
+    const video = await Video.findByPk(id);
+    if (!video) {
+      throw new Error(t("models.video.notFound"));
+    }
+    video.update({ name, description, metadata, language, coverUrl, source });
   }
 
   private async destroy(event: IpcMainEvent, id: string) {
-    return Video.findOne({
-      where: { id },
-    }).then((video) => {
-      if (!video) {
-        event.sender.send("on-notification", {
-          type: "error",
-          message: t("models.video.notFound"),
-        });
-      }
-      video.destroy();
-    });
+    const video = await Video.findByPk(id);
+    if (!video) {
+      throw new Error(t("models.video.notFound"));
+    }
+    return await video.destroy();
   }
 
   private async upload(event: IpcMainEvent, id: string) {
-    const video = await Video.findOne({
-      where: { id },
-    });
+    const video = await Video.findByPk(id);
     if (!video) {
-      event.sender.send("on-notification", {
-        type: "error",
-        message: t("models.video.notFound"),
-      });
+      throw new Error(t("models.video.notFound"));
     }
-
     video
       .upload()
       .then((res) => {
         return res;
       })
       .catch((err) => {
-        event.sender.send("on-notification", {
-          type: "error",
-          message: err.message,
-        });
+        logger.error(err);
+        throw err;
       });
   }
 
@@ -192,6 +158,16 @@ class VideosHandler {
     return pathToEnjoyUrl(output);
   }
 
+  private async cleanUp() {
+    const videos = await Video.findAll();
+
+    for (const video of videos) {
+      if (!video.src) {
+        video.destroy();
+      }
+    }
+  }
+
   register() {
     ipcMain.handle("videos-find-all", this.findAll);
     ipcMain.handle("videos-find-one", this.findOne);
@@ -200,6 +176,18 @@ class VideosHandler {
     ipcMain.handle("videos-destroy", this.destroy);
     ipcMain.handle("videos-upload", this.upload);
     ipcMain.handle("videos-crop", this.crop);
+    ipcMain.handle("videos-clean-up", this.cleanUp);
+  }
+
+  unregister() {
+    ipcMain.removeHandler("videos-find-all");
+    ipcMain.removeHandler("videos-find-one");
+    ipcMain.removeHandler("videos-create");
+    ipcMain.removeHandler("videos-update");
+    ipcMain.removeHandler("videos-destroy");
+    ipcMain.removeHandler("videos-upload");
+    ipcMain.removeHandler("videos-crop");
+    ipcMain.removeHandler("videos-clean-up");
   }
 }
 

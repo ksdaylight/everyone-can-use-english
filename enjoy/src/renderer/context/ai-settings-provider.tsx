@@ -1,15 +1,18 @@
 import { createContext, useEffect, useState, useContext } from "react";
-import { AppSettingsProviderContext } from "@renderer/context";
+import {
+  AppSettingsProviderContext,
+  DbProviderContext,
+} from "@renderer/context";
+import { SttEngineOptionEnum, UserSettingKeyEnum } from "@/types/enums";
 
 type AISettingsProviderState = {
   setWhisperModel?: (name: string) => Promise<void>;
-  setWhisperService?: (name: string) => Promise<void>;
+  sttEngine?: SttEngineOptionEnum;
+  setSttEngine?: (name: string) => Promise<void>;
   whisperConfig?: WhisperConfigType;
   refreshWhisperConfig?: () => void;
   openai?: LlmProviderType;
   setOpenai?: (config: LlmProviderType) => void;
-  googleGenerativeAi?: LlmProviderType;
-  setGoogleGenerativeAi?: (config: LlmProviderType) => void;
   setGptEngine?: (engine: GptEngineSettingType) => void;
   currentEngine?: GptEngineSettingType;
 };
@@ -31,22 +34,27 @@ export const AISettingsProvider = ({
     },
   });
   const [openai, setOpenai] = useState<LlmProviderType>(null);
-  const [googleGenerativeAi, setGoogleGenerativeAi] =
-    useState<LlmProviderType>(null);
   const [whisperConfig, setWhisperConfig] = useState<WhisperConfigType>(null);
+  const [sttEngine, setSttEngine] = useState<SttEngineOptionEnum>(
+    SttEngineOptionEnum.ENJOY_AZURE
+  );
   const { EnjoyApp, libraryPath, user, apiUrl } = useContext(
     AppSettingsProviderContext
   );
+  const db = useContext(DbProviderContext);
 
   useEffect(() => {
+    if (db.state !== "connected") return;
+
     fetchSettings();
-  }, []);
+  }, [db.state]);
 
   useEffect(() => {
+    if (db.state !== "connected") return;
     if (!libraryPath) return;
 
     refreshWhisperConfig();
-  }, [libraryPath]);
+  }, [db.state, libraryPath]);
 
   const refreshWhisperConfig = async () => {
     const config = await EnjoyApp.whisper.config();
@@ -60,43 +68,29 @@ export const AISettingsProvider = ({
     });
   };
 
-  const setWhisperService = async (name: WhisperConfigType["service"]) => {
-    return EnjoyApp.whisper.setService(name).then((config) => {
-      if (!config) return;
-      setWhisperConfig(config);
-    });
+  const handleSetSttEngine = async (name: SttEngineOptionEnum) => {
+    setSttEngine(name);
+    return EnjoyApp.userSettings.set(UserSettingKeyEnum.STT_ENGINE, name);
   };
 
   const fetchSettings = async () => {
-    const _openai = await EnjoyApp.settings.getLlm("openai");
+    const _sttEngine = await EnjoyApp.userSettings.get(
+      UserSettingKeyEnum.STT_ENGINE
+    );
+    if (_sttEngine) {
+      setSttEngine(_sttEngine);
+    }
+
+    const _openai = await EnjoyApp.userSettings.get(UserSettingKeyEnum.OPENAI);
     if (_openai) {
       setOpenai(Object.assign({ name: "openai" }, _openai));
     }
 
-    const _googleGenerativeAi = await EnjoyApp.settings.getLlm(
-      "googleGenerativeAi"
+    const _gptEngine = await EnjoyApp.userSettings.get(
+      UserSettingKeyEnum.GPT_ENGINE
     );
-    if (_googleGenerativeAi) {
-      setGoogleGenerativeAi(
-        Object.assign({ name: "googleGenerativeAi" }, _googleGenerativeAi)
-      );
-    }
-
-    const _defaultEngine = await EnjoyApp.settings.getDefaultEngine();
-    const _gptEngine = await EnjoyApp.settings.getGptEngine();
     if (_gptEngine) {
       setGptEngine(_gptEngine);
-    } else if (_defaultEngine) {
-      // Migrate default engine to gpt engine
-      const engine = {
-        name: _defaultEngine,
-        models: {
-          default: "gpt-4o",
-        },
-      };
-      EnjoyApp.settings.setGptEngine(engine).then(() => {
-        setGptEngine(engine);
-      });
     } else if (_openai?.key) {
       const engine = {
         name: "openai",
@@ -104,9 +98,11 @@ export const AISettingsProvider = ({
           default: "gpt-4o",
         },
       };
-      EnjoyApp.settings.setGptEngine(engine).then(() => {
-        setGptEngine(engine);
-      });
+      EnjoyApp.userSettings
+        .set(UserSettingKeyEnum.GPT_ENGINE, engine)
+        .then(() => {
+          setGptEngine(engine);
+        });
     } else {
       const engine = {
         name: "enjoyai",
@@ -114,38 +110,28 @@ export const AISettingsProvider = ({
           default: "gpt-4o",
         },
       };
-      EnjoyApp.settings.setGptEngine(engine).then(() => {
-        setGptEngine(engine);
-      });
+      EnjoyApp.userSettings
+        .set(UserSettingKeyEnum.GPT_ENGINE, engine)
+        .then(() => {
+          setGptEngine(engine);
+        });
     }
   };
 
-  const handleSetLlm = async (
-    name: SupportedLlmProviderType,
-    config: LlmProviderType
-  ) => {
-    await EnjoyApp.settings.setLlm(name, config);
-    const _config = await EnjoyApp.settings.getLlm(name);
-
-    switch (name) {
-      case "openai":
-        setOpenai(Object.assign({ name: "openai" }, _config));
-        break;
-      case "googleGenerativeAi":
-        setGoogleGenerativeAi(
-          Object.assign({ name: "googleGenerativeAi" }, _config)
-        );
-        break;
-    }
+  const handleSetOpenai = async (config: LlmProviderType) => {
+    await EnjoyApp.userSettings.set(UserSettingKeyEnum.OPENAI, config);
+    setOpenai(Object.assign({ name: "openai" }, config));
   };
 
   return (
     <AISettingsProviderContext.Provider
       value={{
         setGptEngine: (engine: GptEngineSettingType) => {
-          EnjoyApp.settings.setGptEngine(engine).then(() => {
-            setGptEngine(engine);
-          });
+          EnjoyApp.userSettings
+            .set(UserSettingKeyEnum.GPT_ENGINE, engine)
+            .then(() => {
+              setGptEngine(engine);
+            });
         },
         currentEngine:
           gptEngine.name === "openai"
@@ -158,14 +144,12 @@ export const AISettingsProvider = ({
                 baseUrl: `${apiUrl}/api/ai`,
               }),
         openai,
-        setOpenai: (config: LlmProviderType) => handleSetLlm("openai", config),
-        googleGenerativeAi,
-        setGoogleGenerativeAi: (config: LlmProviderType) =>
-          handleSetLlm("googleGenerativeAi", config),
+        setOpenai: (config: LlmProviderType) => handleSetOpenai(config),
         whisperConfig,
         refreshWhisperConfig,
         setWhisperModel,
-        setWhisperService,
+        sttEngine,
+        setSttEngine: (name: SttEngineOptionEnum) => handleSetSttEngine(name),
       }}
     >
       {children}

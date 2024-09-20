@@ -1,5 +1,5 @@
 import log from "@main/logger";
-import $ from "cheerio";
+import * as cheerio from "cheerio";
 import { WebContentsView, ipcMain } from "electron";
 
 const logger = log.scope("providers/youtube-provider");
@@ -37,7 +37,8 @@ export class YoutubeProvider {
 
   extractVideos = async (html: string) => {
     try {
-      const json = $.load(html)("script")
+      const json = cheerio
+        .load(html)("script")
         .text()
         .match(/ytInitialData = ({.*?});/)[1];
       const data = JSON.parse(json);
@@ -59,7 +60,7 @@ export class YoutubeProvider {
             videoId: video.richItemRenderer.content.videoRenderer.videoId,
             duration:
               video.richItemRenderer.content.videoRenderer.lengthText
-                .simpleText,
+                ?.simpleText,
           };
         });
 

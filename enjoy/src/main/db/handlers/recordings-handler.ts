@@ -15,6 +15,11 @@ import {
 import dayjs from "dayjs";
 import { t } from "i18next";
 import log from "@main/logger";
+import { NIL as NIL_UUID } from "uuid";
+import FfmpegWrapper from "@main/ffmpeg";
+import path from "path";
+import settings from "@main/settings";
+import { enjoyUrlToPath, pathToEnjoyUrl } from "@main/utils";
 import { AzureSpeechSdk } from "@/main/azure-speech-sdk";
 
 const logger = log.scope("db/handlers/recordings-handler");
@@ -97,11 +102,6 @@ class RecordingsHandler {
       recordings.forEach(async (recording) => {
         await recording.sync();
       });
-
-      event.sender.send("on-notification", {
-        type: "info",
-        message: t("allRecordingsSynced"),
-      });
     } catch (err) {
       logger.error("failed to sync recordings", err.message);
 
@@ -113,7 +113,7 @@ class RecordingsHandler {
   }
 
   private async create(
-    event: IpcMainEvent,
+    _event: IpcMainEvent,
     options: Attributes<Recording> & {
       blob: {
         type: string;
@@ -121,30 +121,27 @@ class RecordingsHandler {
       };
     }
   ) {
-    const { targetId, targetType, referenceId, referenceText, duration } =
-      options;
-    return Recording.createFromBlob(options.blob, {
+    const {
+      targetId = NIL_UUID,
+      targetType = "None",
+      referenceId,
+      referenceText,
+      duration,
+    } = options;
+    const recording = await Recording.createFromBlob(options.blob, {
       targetId,
       targetType,
       referenceId,
       referenceText,
       duration,
-    })
-      .then((recording) => {
-        if (!recording) {
-          throw new Error(t("models.recording.failedToSave"));
-        }
-        return recording.toJSON();
-      })
-      .catch((err) => {
-        event.sender.send("on-notification", {
-          type: "error",
-          message: err.message,
-        });
-      });
+    });
+    if (!recording) {
+      throw new Error(t("models.recording.failedToSave"));
+    }
+    return recording.toJSON();
   }
 
-  private async destroy(event: IpcMainEvent, id: string) {
+  private async destroy(_event: IpcMainEvent, id: string) {
     const recording = await Recording.findOne({
       where: {
         id,
@@ -152,17 +149,10 @@ class RecordingsHandler {
     });
 
     if (!recording) {
-      event.sender.send("on-notification", {
-        type: "error",
-        message: t("models.recording.notFound"),
-      });
+      throw new Error(t("models.recording.notFound"));
     }
-    return recording.destroy().catch((err) => {
-      event.sender.send("on-notification", {
-        type: "error",
-        message: err.message,
-      });
-    });
+
+    await recording.destroy();
   }
 
   private async upload(_event: IpcMainEvent, id: string) {
@@ -177,33 +167,6 @@ class RecordingsHandler {
     }
 
     return await recording.upload();
-  }
-
-  private async assess(event: IpcMainEvent, id: string, language?: string) {
-    const recording = await Recording.findOne({
-      where: {
-        id,
-      },
-    });
-
-    if (!recording) {
-      event.sender.send("on-notification", {
-        type: "error",
-        message: t("models.recording.notFound"),
-      });
-    }
-
-    return recording
-      .assess(language)
-      .then((res) => {
-        return res;
-      })
-      .catch((err) => {
-        event.sender.send("on-notification", {
-          type: "error",
-          message: err.message,
-        });
-      });
   }
   private async askAzureTTS(
     event: IpcMainEvent,
@@ -353,6 +316,17 @@ class RecordingsHandler {
         targetId,
         targetType,
       },
+      include: [
+        {
+          model: PronunciationAssessment,
+          attributes: [
+            [
+              Sequelize.fn("MAX", Sequelize.col("pronunciation_score")),
+              "pronunciationScore",
+            ],
+          ],
+        },
+      ],
       attributes: [
         "targetId",
         "targetType",
@@ -378,6 +352,71 @@ class RecordingsHandler {
       });
   }
 
+  // Select the highest score of the recordings of each referenceId from the
+  // recordings of the target and export as a single file.
+  private async export(
+    event: IpcMainEvent,
+    targetId: string,
+    targetType: string
+  ) {
+    let target: Audio | Video;
+    if (targetType === "Audio") {
+      target = await Audio.findOne({
+        where: {
+          id: targetId,
+        },
+      });
+    } else {
+      target = await Video.findOne({
+        where: {
+          id: targetId,
+        },
+      });
+    }
+
+    if (!target) {
+      throw new Error(t("models.recording.notFound"));
+    }
+
+    // query all recordings of the target
+    const recordings = await Recording.findAll({
+      where: {
+        targetId,
+        targetType,
+      },
+      include: [
+        {
+          model: PronunciationAssessment,
+          attributes: [
+            [
+              Sequelize.fn("MAX", Sequelize.col("pronunciation_score")),
+              "pronunciationScore",
+            ],
+          ],
+        },
+      ],
+      group: ["referenceId"],
+      order: [["referenceId", "ASC"]],
+    });
+
+    if (!recordings || recordings.length === 0) {
+      throw new Error(t("models.recording.notFound"));
+    }
+
+    // export the recordings to a single file
+    // using ffmpeg concat
+    const ffmpeg = new FfmpegWrapper();
+    const outputFilePath = path.join(
+      settings.cachePath(),
+      `${targetType}-${target.id}.mp3`
+    );
+    const inputFiles = recordings.map((recording) =>
+      enjoyUrlToPath(recording.src)
+    );
+    await ffmpeg.concat(inputFiles, outputFilePath);
+    return pathToEnjoyUrl(outputFilePath);
+  }
+
   register() {
     ipcMain.handle("recordings-find-all", this.findAll);
     ipcMain.handle("recordings-find-one", this.findOne);
@@ -386,12 +425,27 @@ class RecordingsHandler {
     ipcMain.handle("recordings-create", this.create);
     ipcMain.handle("recordings-destroy", this.destroy);
     ipcMain.handle("recordings-upload", this.upload);
-    ipcMain.handle("recordings-assess", this.assess);
     ipcMain.handle("ask-azure-tts", this.askAzureTTS);
     ipcMain.handle("recordings-stats", this.stats);
     ipcMain.handle("recordings-group-by-date", this.groupByDate);
     ipcMain.handle("recordings-group-by-target", this.groupByTarget);
     ipcMain.handle("recordings-group-by-segment", this.groupBySegment);
+    ipcMain.handle("recordings-export", this.export);
+  }
+
+  unregister() {
+    ipcMain.removeHandler("recordings-find-all");
+    ipcMain.removeHandler("recordings-find-one");
+    ipcMain.removeHandler("recordings-sync");
+    ipcMain.removeHandler("recordings-sync-all");
+    ipcMain.removeHandler("recordings-create");
+    ipcMain.removeHandler("recordings-destroy");
+    ipcMain.removeHandler("recordings-upload");
+    ipcMain.removeHandler("recordings-stats");
+    ipcMain.removeHandler("recordings-group-by-date");
+    ipcMain.removeHandler("recordings-group-by-target");
+    ipcMain.removeHandler("recordings-group-by-segment");
+    ipcMain.removeHandler("recordings-export");
   }
 }
 

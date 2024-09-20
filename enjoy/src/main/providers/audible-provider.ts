@@ -1,5 +1,5 @@
 import log from "@main/logger";
-import $ from "cheerio";
+import * as cheerio from "cheerio";
 import { WebContentsView, ipcMain } from "electron";
 
 const logger = log.scope("providers/audible-provider");
@@ -35,8 +35,9 @@ export class AudibleProvider {
     if (!html) return [];
 
     const categories: { id: number; label: string }[] = [];
+    const $ = cheerio.load(html);
 
-    $.load(html)(".leftSlot a.refinementFormLink").each((_, el) => {
+    $(".leftSlot a.refinementFormLink").each((_, el) => {
       const id = new URLSearchParams(
         $(el).attr("href")?.split("?")?.pop() ?? ""
       ).get("searchCategory");
@@ -54,8 +55,9 @@ export class AudibleProvider {
     if (!html) return { books: [], hasNextPage: false };
 
     const books: AudibleBookType[] = [];
+    const $ = cheerio.load(html);
 
-    $.load(html)("li.bc-list-item.productListItem").each((_, el) => {
+    $("li.bc-list-item.productListItem").each((_, el) => {
       const cover = $(el).find("img").attr("src");
       const title = $(el).find("h3.bc-heading a.bc-link").text()?.trim();
       const href = $(el).find("h3.bc-heading a.bc-link").attr("href");
@@ -84,7 +86,7 @@ export class AudibleProvider {
     });
 
     const hasNextPage =
-      $.load(html)(".nextButton a").attr("aria-disabled") !== "true";
+      cheerio.load(html)(".nextButton a").attr("aria-disabled") !== "true";
 
     return {
       books,

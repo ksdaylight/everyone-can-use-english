@@ -6,16 +6,20 @@ import {
   useState,
 } from "react";
 import { useHotkeys, useRecordHotkeys } from "react-hotkeys-hook";
-import { AppSettingsProviderContext } from "./app-settings-provider";
-import _ from "lodash";
+import {
+  AppSettingsProviderContext,
+  DbProviderContext,
+} from "@renderer/context";
+import isEmpty from "lodash/isEmpty";
+import { UserSettingKeyEnum } from "@/types/enums";
 
 function isShortcutValid(shortcut: string) {
   const modifiers = ["ctrl", "alt", "shift", "meta"];
   const keys = shortcut.toLowerCase().split("+");
   const modifierCount = keys.filter((key) => modifiers.includes(key)).length;
   const normalKeyCount = keys.length - modifierCount;
-  // Validation rule: At most one modifier key, and at most one regular key
-  return modifierCount <= 1 && normalKeyCount === 1;
+  // Validation rule: At most two modifier key, and at most one regular key
+  return modifierCount <= 2 && normalKeyCount === 1;
 }
 
 function mergeWithPreference(
@@ -37,7 +41,7 @@ function mergeWithPreference(
   return c;
 }
 
-const ControlOrCommand = navigator.platform.includes("Mac")
+const ControlOrCommand = navigator.userAgent.includes("Mac")
   ? "Meta"
   : "Control";
 
@@ -52,6 +56,9 @@ const defaultKeyMap = {
   PlayPreviousSegment: "P",
   PlayNextSegment: "N",
   Compare: "C",
+  PronunciationAssessment: "A",
+  IncreasePlaybackRate: "]",
+  DecreasePlaybackRate: "[",
   // dev tools
   OpenDevTools: `${ControlOrCommand}+Shift+I`,
 };
@@ -89,9 +96,8 @@ const initialState: HotkeysSettingsProviderState = {
   isRecording: false,
 };
 
-export const HotKeysSettingsProviderContext = createContext<
-  HotkeysSettingsProviderState
->(initialState);
+export const HotKeysSettingsProviderContext =
+  createContext<HotkeysSettingsProviderState>(initialState);
 
 const HotKeysSettingsSystemSettings = ({
   currentHotkeys,
@@ -109,6 +115,7 @@ const HotKeysSettingsSystemSettings = ({
     },
     {
       enabled,
+      preventDefault: true,
     }
   );
 
@@ -119,6 +126,7 @@ const HotKeysSettingsSystemSettings = ({
     },
     {
       enabled,
+      preventDefault: true,
     }
   );
 
@@ -129,6 +137,7 @@ const HotKeysSettingsSystemSettings = ({
     },
     {
       enabled,
+      preventDefault: true,
     }
   );
   return children;
@@ -145,18 +154,25 @@ export const HotKeysSettingsProvider = ({
   const [keys, { start, stop, resetKeys, isRecording }] = useRecordHotkeys();
 
   const { EnjoyApp } = useContext(AppSettingsProviderContext);
+  const { state: dbState } = useContext(DbProviderContext);
 
   useEffect(() => {
+    if (dbState !== "connected") return;
+
     fetchSettings();
-  }, []);
+  }, [dbState]);
 
   const fetchSettings = async () => {
-    const _hotkeys = await EnjoyApp.settings.getDefaultHotkeys();
+    const _hotkeys = await EnjoyApp.userSettings.get(
+      UserSettingKeyEnum.HOTKEYS
+    );
     // During version iterations, there may be added or removed keys.
     const merged = mergeWithPreference(_hotkeys ?? {}, defaultKeyMap);
-    await EnjoyApp.settings.setDefaultHotkeys(merged).then(() => {
-      setCurrentHotkeys(merged);
-    });
+    await EnjoyApp.userSettings
+      .set(UserSettingKeyEnum.HOTKEYS, merged)
+      .then(() => {
+        setCurrentHotkeys(merged);
+      });
   };
 
   const changeHotkey = useCallback(
@@ -168,7 +184,8 @@ export const HotKeysSettingsProvider = ({
       data: string | string[];
       input: string;
     } | void> => {
-      const str = [...recordedHotkeys].join("+");
+      const keys = [...recordedHotkeys].slice(0, 3).filter(Boolean);
+      const str = keys.join("+");
       const newMap = {
         ...currentHotkeys,
         [keyName]: str,
@@ -194,9 +211,11 @@ export const HotKeysSettingsProvider = ({
         };
       }
 
-      await EnjoyApp.settings.setDefaultHotkeys(newMap).then(() => {
-        setCurrentHotkeys(newMap);
-      });
+      await EnjoyApp.userSettings
+        .set(UserSettingKeyEnum.HOTKEYS, newMap)
+        .then(() => {
+          setCurrentHotkeys(newMap);
+        });
       resetKeys();
     },
     [currentHotkeys]
@@ -224,7 +243,9 @@ export const HotKeysSettingsProvider = ({
         changeHotkey,
       }}
     >
-      {_.isEmpty(currentHotkeys) ? null : (
+      {isEmpty(currentHotkeys) ? (
+        children
+      ) : (
         <HotKeysSettingsSystemSettings
           {...{
             currentHotkeys,

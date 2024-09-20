@@ -1,5 +1,7 @@
-# 1. 基础（Basics）
+# 1. 基础
 
-英文语音所谓的基础真的很少，打印出来也不过是几页纸的篇幅而已…… 实际上，任何语音的语音基础知识都同样少得惊人。
+其实，所谓的 “基础” 真的很少，打印出来不过几页纸而已……
 
-The fundamentals of English pronunciation, in reality, are quite straightforward. Printed out, they would only take up a few pages. In fact, the basic knowledge of any language's pronunciation is astonishingly limited.
+经常有人问，“我零基础可不可以？” —— 当然可以。
+
+说实话，不仅可以，事实上可能相对还更好一些，因为零基础的人压根就没有那么多需要纠正的通过长期错误使用而形成的无数细节错误。
