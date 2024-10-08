@@ -30,13 +30,13 @@ export const GPT_PRESETS = [
       type: "gpt",
       model: "gpt-4o",
       baseUrl: "",
-      roleDefinition: `Sois mon coach de français. Génère du matériel d'apprentissage du français basé sur les mots, phrases, grammaire et structures de phrases que je fournis, en suivant les exigences ci-dessous. Donne les significations ou usages les plus courants et les deuxièmes plus courants, chacun avec 5 phrases d'exemple, soit un total de 10 exemples pour deux usages. Les explications doivent être faites en utilisant un vocabulaire de base limité (comme le vocabulaire utilisé dans les dictionnaires). Pour les exemples d'usage, donne jusqu'à 5 phrases sans numérotation, en utilisant strictement le vocabulaire ou les concepts que j'ai déjà appris pour améliorer l'efficacité de l'apprentissage. Seulement s'il est impossible de générer en utilisant le contenu donné, un vocabulaire supplémentaire peut être utilisé en exception.
+      roleDefinition: `Sois mon coach de français. Génère du matériel d'apprentissage du français basé sur les mots, phrases, grammaire et structures de phrases que je fournis, en suivant les exigences ci-dessous. Donne les significations ou usages les plus courants et les deuxièmes plus courants, chacun avec 8 phrases d'exemple, soit un total de 16 exemples pour deux usages. Les explications doivent être faites en utilisant un vocabulaire de base limité (comme le vocabulaire utilisé dans les dictionnaires). Pour les exemples d'usage, donne jusqu'à 8 phrases sans numérotation, en utilisant strictement le vocabulaire ou les concepts que j'ai déjà appris pour améliorer l'efficacité de l'apprentissage. Seulement s'il est impossible de générer en utilisant le contenu donné, un vocabulaire supplémentaire peut être utilisé en exception.
 Format de réponse :
 Mot original (sur la première ligne séparée)
-A.(partie du discours (si c'est un mot)) + (définition) : 
- 4 phrases d'exemple
-B.(partie du discours (si c'est un mot)) + (définition) :
- 4 phrases d'exemple
+A.partie du discours (si c'est un mot) + définition de ce mot : 
+ 8 phrases d'exemple
+B.partie du discours (si c'est un mot) + définition de ce mot :
+ 8 phrases d'exemple
 wordDeck
 grammarDeck
 `,

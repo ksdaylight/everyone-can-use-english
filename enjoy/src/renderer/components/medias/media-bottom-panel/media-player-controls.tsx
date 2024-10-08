@@ -58,7 +58,7 @@ export const MediaPlayerControls = () => {
   } = useContext(MediaShadowProviderContext);
   const { EnjoyApp } = useContext(AppSettingsProviderContext);
   const { currentHotkeys } = useContext(HotKeysSettingsProviderContext);
-  const [playMode, setPlayMode] = useState<"loop" | "single" | "all">("single");
+  const [playMode, setPlayMode] = useState<"loop" | "single" | "all">("all");
   const [playbackRate, setPlaybackRate] = useState<number>(1);
   const [grouping, setGrouping] = useState(false);
 
