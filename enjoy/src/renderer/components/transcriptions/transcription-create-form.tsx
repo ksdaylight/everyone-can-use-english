@@ -118,7 +118,7 @@ export const TranscriptionCreateForm = (props: {
         }
 
         // Remove all content inside `()`
-        text = text.replace(/\(.*?\)/g, "").trim();
+        // text = text.replace(/\(.*?\)/g, "").trim();
         resolve(text);
       };
 

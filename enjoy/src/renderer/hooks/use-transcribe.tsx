@@ -156,7 +156,7 @@ export const useTranscribe = () => {
       // Remove all content inside `()`, `[]`, `{}` and trim the text
       // remove all markdown formatting
       transcript = transcript
-        .replace(/\(.*?\)/g, "")
+        // .replace(/\(.*?\)/g, "") //这个额外不用去掉,本人使用时不会不读出括号内容，而且ai倾向生成带括号的文本
         .replace(/\[.*?\]/g, "")
         .replace(/\{.*?\}/g, "")
         .replace(/[*_`]/g, "")
