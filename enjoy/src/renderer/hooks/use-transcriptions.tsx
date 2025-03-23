@@ -87,7 +87,7 @@ export const useTranscriptions = (media: AudioType | VideoType) => {
 
   const findTranscriptionOnline = async () => {
     if (!media) return;
-
+    return null; //去掉网络请求，仅用本地
     try {
       const result = await webApi.transcriptions({
         targetMd5: media.md5,
