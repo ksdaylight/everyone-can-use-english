@@ -65,7 +65,7 @@ export const AssistantMessageComponent = (props: {
   }, [message]);
 
   useEffect(() => {
-    if (speech) {
+    if (speech && configuration?.roleDefinition.includes("shadowing")) {
       startShadow(); //自动为每个speech创建 对应audios
       return;
     }

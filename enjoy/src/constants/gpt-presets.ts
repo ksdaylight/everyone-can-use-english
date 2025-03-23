@@ -7,7 +7,7 @@ export const GPT_PRESETS = [
       type: "gpt",
       model: "gpt-4o",
       baseUrl: "",
-      roleDefinition: `clearAndReturnOriginal`,
+      roleDefinition: `clearAndReturnOriginal shadowing`,
       temperature: 0.2,
       numberOfChoices: 1,
       maxTokens: 2048,
