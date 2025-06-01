@@ -7,6 +7,7 @@ import {
   shell,
   dialog,
   systemPreferences,
+  clipboard,
 } from "electron";
 import path from "path";
 import db from "@main/db";
@@ -463,6 +464,10 @@ ${log}
 
   ipcMain.handle("dialog-show-error-box", (_event, title, content) => {
     return dialog.showErrorBox(title, content);
+  });
+
+  ipcMain.handle("system-clipboard-get", (_event) => {
+    return clipboard.readText().trim();
   });
 
   // Create the browser window.

@@ -77,6 +77,11 @@ contextBridge.exposeInMainWorld("__ENJOY_APP__", {
         return ipcRenderer.invoke("system-proxy-set", config);
       },
     },
+    clipboard:{
+      get:()=>{
+        return ipcRenderer.invoke("system-clipboard-get");
+      }
+    }
   },
   providers: {
     audible: {

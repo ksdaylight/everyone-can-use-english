@@ -1,4 +1,4 @@
-import { useEffect, useState, useReducer, useContext } from "react";
+import { useEffect, useState, useReducer, useContext, useRef } from "react";
 import {
   AudioCard,
   MediaAddButton,
@@ -44,7 +44,10 @@ import { audiosReducer } from "@renderer/reducers";
 import { useDebounce } from "@uidotdev/usehooks";
 import { LANGUAGES } from "@/constants";
 
+import { useNavigate } from "react-router-dom";
+
 export const AudiosComponent = () => {
+  const navigate = useNavigate(); //--
   const { addDblistener, removeDbListener } = useContext(DbProviderContext);
   const { EnjoyApp } = useContext(AppSettingsProviderContext);
 
@@ -127,6 +130,21 @@ export const AudiosComponent = () => {
 
         if (offset === 0) {
           dispatchAudios({ type: "set", records: _audios });
+          // 新增剪贴板自动导航逻辑
+          EnjoyApp.system.clipboard.get().then((clipboardText) => {
+            if (clipboardText && debouncedQuery.length < 1) {
+              //当剪切板有，且搜索栏没有内容时
+              const exactMatch = _audios.find(
+                (audio) => audio.name === clipboardText
+              );
+
+              if (_audios.length === 1 || exactMatch) {
+                //这也意味着，想要查看这个列表，需要主动调整剪切板，让它搜不到就是了
+                const target = exactMatch || _audios[0];
+                navigate(`/audios/${target.id}`);
+              }
+            }
+          });
         } else {
           dispatchAudios({ type: "append", records: _audios });
         }

@@ -28,6 +28,9 @@ type EnjoyAppType = {
       get: () => Promise<ProxyConfigType>;
       set: (config: ProxyConfigType) => Promise<void>;
     };
+    clipboard: {
+      get: () => Promise<string>;
+    };
   };
   providers: {
     audible: {
