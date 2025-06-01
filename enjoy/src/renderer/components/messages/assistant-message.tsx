@@ -65,8 +65,21 @@ export const AssistantMessageComponent = (props: {
   }, [message]);
 
   useEffect(() => {
+    if (
+      !speech &&
+      !speeching &&
+      configuration?.roleDefinition.includes("tts")
+    ) {
+      findOrCreateSpeech(); //自动化stp1:自动为shadowing 的创建tts，不用 configuration?.type !== "tts" 这个逻辑，因为跟我懒得找它原有的实现
+
+      return;
+    }
+  }, [speech]);
+
+  useEffect(() => {
     if (speech && configuration?.roleDefinition.includes("shadowing")) {
-      startShadow(); //自动为每个speech创建 对应audios
+      startShadow(); //自动化stp2:自动为每个speech创建 对应audios
+
       return;
     }
   }, [speech]);

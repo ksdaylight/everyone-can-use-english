@@ -1,13 +1,13 @@
 export const GPT_PRESETS = [
   {
     key: "french-coach-clear",
-    name: "clearAndReturnOriginal",
+    name: "clearAndReturnOriginal shadowing tts",
     engine: "enjoyai",
     configuration: {
       type: "gpt",
       model: "gpt-4o",
       baseUrl: "",
-      roleDefinition: `clearAndReturnOriginal shadowing`,
+      roleDefinition: `clearAndReturnOriginal shadowing tts`,
       temperature: 0.2,
       numberOfChoices: 1,
       maxTokens: 2048,
