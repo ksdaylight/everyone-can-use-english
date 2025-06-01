@@ -116,6 +116,7 @@ export const AudiosComponent = () => {
     if (language != "all") {
       where = { language };
     }
+    const clipboardText = await EnjoyApp.system.clipboard.get();
 
     EnjoyApp.audios
       .findAll({
@@ -123,28 +124,27 @@ export const AudiosComponent = () => {
         limit,
         order,
         where,
-        query: debouncedQuery,
+        query:
+          debouncedQuery || (clipboardText.length > 0 ? clipboardText : ""),
       })
       .then((_audios) => {
         setHasMore(_audios.length >= limit);
 
         if (offset === 0) {
           dispatchAudios({ type: "set", records: _audios });
-          // 新增剪贴板自动导航逻辑
-          EnjoyApp.system.clipboard.get().then((clipboardText) => {
-            if (clipboardText && debouncedQuery.length < 1) {
-              //当剪切板有，且搜索栏没有内容时
-              const exactMatch = _audios.find(
-                (audio) => audio.name === clipboardText
-              );
+          // 剪贴板自动导航逻辑
+          if (clipboardText.length > 0 && debouncedQuery.length < 1) {
+            //当剪切板有，且搜索栏没有内容时
+            const exactMatch = _audios.find(
+              (audio) => audio.name === clipboardText
+            );
 
-              if (_audios.length === 1 || exactMatch) {
-                //这也意味着，想要查看这个列表，需要主动调整剪切板，让它搜不到就是了
-                const target = exactMatch || _audios[0];
-                navigate(`/audios/${target.id}`);
-              }
+            if (_audios.length === 1 || exactMatch) {
+              //这也意味着，想要查看这个列表，需要主动调整剪切板(比如复制一段空白或乱码)，让它搜不到就是了
+              const target = exactMatch || _audios[0];
+              navigate(`/audios/${target.id}`);
             }
-          });
+          }
         } else {
           dispatchAudios({ type: "append", records: _audios });
         }
