@@ -151,6 +151,22 @@ export const TranscriptionCreateForm = (props: {
         onSubmit={form.handleSubmit(handleSubmit)}
         className="gap-4 grid w-full"
       >
+        <div className="flex justify-end space-x-4">
+          {onCancel && !transcribing && (
+            <Button type="reset" variant="outline" onClick={onCancel}>
+              {t("cancel")}
+            </Button>
+          )}
+          <Button
+            data-testid="transcribe-continue-button"
+            disabled={transcribing}
+            type="submit"
+            variant="default"
+          >
+            {transcribing && <LoaderIcon className="animate-spin w-4 mr-2" />}
+            {t("continue")}
+          </Button>
+        </div>
         <FormField
           control={form.control}
           name="service"
@@ -246,6 +262,7 @@ export const TranscriptionCreateForm = (props: {
             />
           </>
         )}
+
         <Collapsible open={collapsibleOpen} onOpenChange={setCollapsibleOpen}>
           <CollapsibleContent className="mb-4 space-y-4">
             {form.watch("service") === "upload" && (
@@ -325,23 +342,6 @@ export const TranscriptionCreateForm = (props: {
           transcribingProgress={transcribingProgress}
           transcribingOutput={transcribingOutput}
         />
-
-        <div className="flex justify-end space-x-4">
-          {onCancel && !transcribing && (
-            <Button type="reset" variant="outline" onClick={onCancel}>
-              {t("cancel")}
-            </Button>
-          )}
-          <Button
-            data-testid="transcribe-continue-button"
-            disabled={transcribing}
-            type="submit"
-            variant="default"
-          >
-            {transcribing && <LoaderIcon className="animate-spin w-4 mr-2" />}
-            {t("continue")}
-          </Button>
-        </div>
       </form>
     </Form>
   );
