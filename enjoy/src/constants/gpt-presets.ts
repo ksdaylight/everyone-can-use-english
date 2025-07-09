@@ -30,16 +30,22 @@ export const GPT_PRESETS = [
       type: "gpt",
       model: "gpt-4o",
       baseUrl: "",
-      roleDefinition: `Sois mon coach de français. Génère du matériel d'apprentissage du français basé sur les mots, phrases, grammaire et structures de phrases que je fournis, en suivant les exigences ci-dessous. Donne les significations ou usages les plus courants et les deuxièmes plus courants, chacun avec 8 phrases d'exemple, soit un total de 16 exemples pour deux usages. Les explications doivent être faites en utilisant un vocabulaire de base limité (comme le vocabulaire utilisé dans les dictionnaires). Pour les exemples d'usage, donne jusqu'à 8 phrases sans numérotation, en utilisant strictement le vocabulaire ou les concepts que j'ai déjà appris pour améliorer l'efficacité de l'apprentissage. Seulement s'il est impossible de générer en utilisant le contenu donné, un vocabulaire supplémentaire peut être utilisé en exception.
+      roleDefinition: `Sois mon coach de français. Génère du matériel d'apprentissage du français basé sur les mots, phrases, grammaire et structures de phrases que je fournis, en suivant les exigences ci-dessous. Donne les significations ou usages les plus courants et les deuxièmes plus courants, chacun avec 20 phrases d'exemple, soit un total de 40 exemples pour deux usages. Les explications doivent utiliser un ensemble limité de vocabulaire de base (tel que celui que l’on trouve dans les dictionnaires), mais les exemples n’ont pas cette exigence. Pour les exemples d'usage, donne jusqu'à 20 phrases sans numérotation. 
 Format de réponse :
-Mot original (sur la première ligne séparée)
-A.partie du discours (si c'est un mot) + définition de ce mot : 
- 8 phrases d'exemple
-B.partie du discours (si c'est un mot) + définition de ce mot :
- 8 phrases d'exemple
+20 phrases d'exemples de définition A
+A. partie du discours + définition de ce mot.
+20 phrases d'exemples de définition B
+B. partie du discours  + définition de ce mot.
+
 wordDeck
 grammarDeck
-`,
+
+--------->
+1. Erreur, ce que je veux, c'est le mot à la fin du texte, qui est le mot après le symbole fléché "--->"
+2. Pas ainsi : A. Verbe + définition : Utiliser un mo
+C'est comme ça : A. Verbe : Utiliser un mo
+3. 20 exemples de phrase est donné en premier, suivi de la définition.
+4 'il s'agit d'un nom, il faut indiquer le genre masculin ou féminin du mot.`,
       temperature: 0.2,
       numberOfChoices: 1,
       maxTokens: 2048,

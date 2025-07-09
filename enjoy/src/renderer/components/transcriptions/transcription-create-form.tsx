@@ -66,7 +66,7 @@ export const TranscriptionCreateForm = (props: {
     resolver: zodResolver(transcriptionSchema),
     values: {
       language: learningLanguage,
-      service: originalText ? "upload" : sttEngine,
+      service: "upload", // 这里就是让"upload"为默认选项 originalText ? "upload" : sttEngine,
       text: originalText,
       isolate: false,
     },

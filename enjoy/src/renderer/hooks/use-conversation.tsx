@@ -157,20 +157,41 @@ export const useConversation = () => {
     if (!learningLanguageDeck) {
       throw new Error(`Deck for language ${learningLanguage} not found`);
     }
-    const targetDeck =
+    // const targetDeck =
+    //   type === "word"
+    //     ? learningLanguageDeck.wordsDeck
+    //     : learningLanguageDeck.grammarDeck; //简单判断，有需要再改
+    // const resultFromAnki = await client.api.post("", {
+    //   action: "findCards",
+    //   version: 6,
+    //   key: anki.key,
+    //   params: {
+    //     query: `deck:${targetDeck}`,
+    //   },
+    // });
+    // const cardIds: number[] = (resultFromAnki as any).result;
+
+    const targetDecks = (
       type === "word"
         ? learningLanguageDeck.wordsDeck
-        : learningLanguageDeck.grammarDeck; //简单判断，有需要再改
+        : learningLanguageDeck.grammarDeck
+    )
+      .split(",")
+      .map((deck) => deck.trim()); //多个牌组，逗号隔开
+    let cardIds: number[] = [];
 
-    const resultFromAnki = await client.api.post("", {
-      action: "findCards",
-      version: 6,
-      key: anki.key,
-      params: {
-        query: `deck:${targetDeck}`,
-      },
-    });
-    const cardIds: number[] = (resultFromAnki as any).result;
+    for (const deck of targetDecks) {
+      const resultFromAnki = await client.api.post("", {
+        action: "findCards",
+        version: 6,
+        key: anki.key,
+        params: {
+          query: `deck:${deck}`,
+        },
+      });
+      cardIds.push(...(resultFromAnki as any).result);
+    }
+
     const batchSize = 500; // 每批请求的卡片数量，可以根据需要调整
     const deckResult: string[] = [];
 
@@ -247,47 +268,37 @@ export const useConversation = () => {
     const grammarToCheck = "grammarDeck";
     const clearAndReturnOriginal = "clearAndReturnOriginal";
     // 检查并替换 wordDeck
+    // wordDeck 替换
     if (systemMessage.includes(wordToCheck)) {
       const wordDeck = await getWordDeck();
       const wordDeckString = wordDeck.join(", ");
+      const preWordConstraints =
+        learningLanguage === "fr-FR"
+          ? "Voici les mots/phrases, etc., que j'ai appris :"
+          : "Here are the words/phrases etc I learned:";
+      const wordConstraints = `${preWordConstraints}\n${wordDeckString}.`;
       systemMessage = systemMessage.replace(
         new RegExp(`\\b${wordToCheck}\\b`, "g"),
-        ""
+        wordConstraints
       );
-      let preWordConstraints = "";
-      if (learningLanguage === "fr-FR") {
-        preWordConstraints = "Voici les mots/phrases, etc., que j'ai appris :";
-      } else {
-        preWordConstraints = "Here are the words/phrases etc I learned:";
-      }
-      const wordConstraints = `${preWordConstraints}
-${wordDeckString}.
-    `;
-      systemMessage += ` ${wordConstraints}`;
     }
 
-    // 检查并替换 grammarDeck
+    // grammarDeck 替换
     if (systemMessage.includes(grammarToCheck)) {
       const grammarDeck = await getGrammarDeck();
       const grammarDeckString = grammarDeck.join(", ");
+      const preGrammarConstraints =
+        learningLanguage === "fr-FR"
+          ? "Ce qui suit est ce que j'ai appris sur la structure des phrases, la grammaire, etc.:"
+          : "The following are what I learned about sentence structure, grammar etc:";
+      const grammarConstraints = `${preGrammarConstraints}\n${grammarDeckString}.`;
       systemMessage = systemMessage.replace(
         new RegExp(`\\b${grammarToCheck}\\b`, "g"),
-        ""
+        grammarConstraints
       );
-      let preGrammarConstraints = "";
-      if (learningLanguage === "fr-FR") {
-        preGrammarConstraints =
-          "Ce qui suit est ce que j'ai appris sur la structure des phrases, la grammaire, etc.:";
-      } else {
-        preGrammarConstraints =
-          "The following are what I learned about sentence structure, grammar etc:";
-      }
-      const grammarConstraints = `${preGrammarConstraints}
-${grammarDeckString}.
-    `;
-      systemMessage += ` ${grammarConstraints}`;
     }
 
+    //另外一个指令
     if (systemMessage.includes(clearAndReturnOriginal)) {
       systemMessage = ""; //清空
     }
